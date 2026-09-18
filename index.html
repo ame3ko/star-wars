@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EP1限定クイズ</title>
+<style>
+  :root{
+    --gold:#f5d142;
+    --gold-dim:#a9860b;
+    --blue:#3fa9f5;
+    --red:#ff3b3b;
+    --green:#3ddc84;
+    --bg:#000000;
+    --panel:#0a0e18;
+    --panel-border:#1c2440;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:#e8e8f0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;overflow-x:hidden;min-height:100%;}
+
+  /* starfield */
+  #stars, #stars2, #stars3{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+  }
+  .twinkle{position:absolute;background:#fff;border-radius:50%;opacity:.8;animation:tw linear infinite;}
+  @keyframes tw{
+    0%,100%{opacity:.15;}
+    50%{opacity:1;}
+  }
+
+  .wrap{
+    position:relative;z-index:2;max-width:640px;margin:0 auto;
+    height:100dvh;height:100vh;
+    padding:14px 16px 12px;
+    display:flex;flex-direction:column;
+  }
+
+  /* logo header */
+  .header{flex:0 0 auto;}
+  .logo{
+    text-align:center;
+    font-weight:900;
+    letter-spacing:1.5px;
+    font-size:clamp(20px,5.5vw,30px);
+    background:linear-gradient(180deg,#fff2b0 0%,var(--gold) 45%,var(--gold-dim) 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow:0 0 18px rgba(245,209,66,.3);
+    transform:perspective(300px) rotateX(6deg);
+    margin:2px 0 2px;
+    text-transform:uppercase;
+  }
+  .subtitle{
+    text-align:center;color:var(--blue);letter-spacing:3px;font-size:10.5px;
+    text-transform:uppercase;margin-bottom:10px;opacity:.85;
+  }
+  .divider{
+    height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);
+    margin:10px 0 12px;
+  }
+
+  /* stage: scrollable content area between fixed header and bottom controls */
+  .stage{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:2px;}
+  .stage::-webkit-scrollbar{width:6px;}
+  .stage::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:4px;}
+
+  /* crawl intro */
+  #screen-intro{height:100%;display:flex;flex-direction:column;}
+  .crawl-stage{
+    position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
+    background:radial-gradient(ellipse at 50% 100%, rgba(20,20,35,.4), transparent 70%);
+    border-radius:12px;margin-bottom:12px;
+    perspective:400px;perspective-origin:50% 100%;
+  }
+  .crawl-fade-top{
+    position:absolute;top:0;left:0;right:0;height:30%;
+    background:linear-gradient(#000 10%,transparent);
+    z-index:3;pointer-events:none;
+  }
+  .crawl{
+    position:absolute;left:50%;bottom:0;width:84%;
+    transform-origin:50% 100%;
+    transform:translateX(-50%) rotateX(35deg);
+    text-align:center;
+  }
+  .crawl-inner{
+    color:var(--gold);
+    font-weight:700;
+    font-size:clamp(12px,2.6vw,17px);
+    line-height:1.55;
+    animation:crawlmove 22s linear forwards;
+  }
+  .crawl-inner p{margin:0 0 1em;}
+  .crawl-inner h3{
+    font-size:1.15em;margin-bottom:.7em;letter-spacing:1.5px;
+  }
+  @keyframes crawlmove{
+    0%{transform:translateY(85%);}
+    100%{transform:translateY(-170%);}
+  }
+  .skip-btn{
+    position:absolute;bottom:10px;right:10px;z-index:4;
+    background:rgba(0,0,0,.6);color:var(--gold);border:1px solid var(--gold-dim);
+    padding:6px 12px;border-radius:20px;font-size:11px;cursor:pointer;letter-spacing:1px;
+  }
+
+  .btn{
+    display:inline-block;cursor:pointer;user-select:none;
+    background:linear-gradient(180deg,var(--gold) 0%,var(--gold-dim) 100%);
+    color:#161200;font-weight:800;border:none;border-radius:8px;
+    padding:14px 30px;font-size:16px;letter-spacing:1px;
+    box-shadow:0 0 18px rgba(245,209,66,.35);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 0 26px rgba(245,209,66,.55);}
+  .btn:active{transform:translateY(0);}
+  .btn.secondary{
+    background:linear-gradient(180deg,#2a3550,#161c2c);
+    color:var(--blue); box-shadow:0 0 14px rgba(63,169,245,.25);
+  }
+  .btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none;}
+  .center{text-align:center;}
+
+  /* progress */
+  .progress-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex:0 0 auto;}
+  .progress-track{flex:1;height:7px;background:#141a2c;border-radius:6px;overflow:hidden;border:1px solid var(--panel-border);}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),#8fd9ff);box-shadow:0 0 10px var(--blue);transition:width .35s ease;}
+  .progress-label{font-size:11.5px;color:var(--gold);letter-spacing:1px;white-space:nowrap;}
+
+  #screen-quiz{height:100%;display:flex;flex-direction:column;}
+
+  /* question card */
+  .card{
+    background:linear-gradient(180deg,var(--panel),#050710);
+    border:1px solid var(--panel-border);
+    border-radius:14px;padding:18px 18px;
+    box-shadow:0 0 0 1px rgba(255,255,255,.02), 0 10px 40px rgba(0,0,0,.5);
+    animation:fadein .35s ease;
+    overflow-y:auto;flex:1 1 auto;min-height:0;
+  }
+  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .qnum{color:var(--blue);font-size:11.5px;letter-spacing:2px;margin-bottom:6px;text-transform:uppercase;}
+  .qtext{font-size:16px;font-weight:700;line-height:1.5;margin-bottom:14px;color:#fff;}
+
+  .choices{display:grid;gap:8px;}
+  .choice{
+    position:relative;text-align:left;
+    background:#0f1424;border:1px solid var(--panel-border);
+    color:#e8e8f0;padding:10px 14px;border-radius:10px;
+    font-size:14px;cursor:pointer;transition:all .15s ease;
+    display:flex;align-items:center;gap:10px;
+  }
+  .choice .mark{
+    flex:0 0 22px;height:22px;border-radius:50%;border:1px solid var(--panel-border);
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gold-dim);
+  }
+  .choice:hover:not(.locked){border-color:var(--gold-dim);background:#141a30;}
+  .choice.locked{cursor:default;}
+  .choice.selected{border-color:var(--blue);box-shadow:0 0 12px rgba(63,169,245,.4);}
+  .choice.correct{
+    border-color:var(--green);background:rgba(61,220,132,.12);
+    box-shadow:0 0 16px rgba(61,220,132,.35);
+  }
+  .choice.correct .mark{color:var(--green);border-color:var(--green);}
+  .choice.wrong{
+    border-color:var(--red);background:rgba(255,59,59,.12);
+    box-shadow:0 0 16px rgba(255,59,59,.35);
+  }
+  .choice.wrong .mark{color:var(--red);border-color:var(--red);}
+
+  .feedback{
+    margin-top:12px;padding:10px 14px;border-radius:10px;font-weight:800;
+    letter-spacing:1.5px;text-align:center;font-size:14px;animation:pop .25s ease;
+  }
+  @keyframes pop{from{transform:scale(.9);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .feedback.ok{background:rgba(61,220,132,.12);color:var(--green);border:1px solid var(--green);}
+  .feedback.ng{background:rgba(255,59,59,.12);color:var(--red);border:1px solid var(--red);}
+  .explain{margin-top:8px;font-size:12.5px;color:#b9c2d9;line-height:1.6;padding:0 2px;}
+
+  .nav-row{display:flex;justify-content:flex-end;margin-top:12px;flex:0 0 auto;padding-top:10px;}
+
+  /* result screen */
+  #screen-result{height:100%;display:flex;flex-direction:column;}
+  .result-hero{text-align:center;padding:6px 10px 4px;flex:0 0 auto;}
+  .result-score{
+    font-size:38px;font-weight:900;color:var(--gold);
+    text-shadow:0 0 20px rgba(245,209,66,.5);
+  }
+  .result-total{color:#b9c2d9;font-size:13px;margin-top:-4px;}
+  .rank-badge{
+    display:inline-block;margin-top:8px;padding:7px 18px;border-radius:24px;
+    border:1px solid var(--gold-dim);color:var(--gold);font-weight:800;letter-spacing:1.5px;
+    background:rgba(245,209,66,.08);font-size:12.5px;
+  }
+  .rank-desc{margin-top:8px;color:#c7cfe6;font-size:12.5px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6;}
+
+  .review-wrap{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:2px;}
+  .review-wrap::-webkit-scrollbar{width:6px;}
+  .review-wrap::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:4px;}
+
+  .review-item{
+    background:#0f1424;border:1px solid var(--panel-border);border-radius:10px;
+    padding:10px 12px;margin-bottom:8px;
+  }
+  .review-head{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:700;color:#fff;}
+  .review-icon{flex:0 0 18px;font-weight:900;}
+  .review-icon.ok{color:var(--green);}
+  .review-icon.ng{color:var(--red);}
+  .review-ans{margin:6px 0 0 26px;font-size:12px;color:#aab3cc;line-height:1.5;}
+  .review-ans b{color:#e8e8f0;}
+  .review-explain{margin:4px 0 0 26px;font-size:11.5px;color:#8b95b3;line-height:1.5;}
+
+  .footer-note{text-align:center;color:#5b6480;font-size:10px;margin-top:10px;letter-spacing:1px;flex:0 0 auto;}
+  .result-actions{flex:0 0 auto;padding-top:10px;}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+<div id="stars2"></div>
+<div id="stars3"></div>
+
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">EP1限定クイズ</div>
+    <div class="subtitle">～ エピソード1しか見ていない者への試練 ～</div>
+  </div>
+
+  <div class="stage">
+
+  <!-- INTRO / CRAWL SCREEN -->
+  <div id="screen-intro">
+    <div class="crawl-stage">
+      <div class="crawl-fade-top"></div>
+      <div class="crawl">
+        <div class="crawl-inner" id="crawlInner">
+          <h3>episode1限定<br>ルール説明</h3>
+          <p>
+            あなたはスター・ウォーズを一度も見たことがなかった。<br>
+            そんなあなたに、ある日<br>
+            「エピソード1／ファントム・メナス」だけが見せられた。
+          </p>
+          <p>
+            これから出題される全10問は、<br>
+            すべて<b>エピソード1で描かれた内容のみ</b>から作られている。
+          </p>
+          <p>
+            後の episode やスピンオフの知識は一切問われない。<br>
+            映画で見た記憶だけを頼りに、フォースと共にあれ。
+          </p>
+          <p>
+            準備ができたら、下のボタンで<br>
+            クイズを開始せよ。
+          </p>
+        </div>
+      </div>
+      <button class="skip-btn" id="skipCrawl">スキップ ▶</button>
+    </div>
+    <div class="center" style="flex:0 0 auto;padding-top:10px;">
+      <button class="btn" id="startBtn">クイズを開始する</button>
+    </div>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div id="screen-quiz" class="hidden">
+    <div class="progress-row">
+      <div class="progress-label" id="qCounter">問題 1 / 10</div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+      <div class="progress-label" id="scoreLive">正解 0</div>
+    </div>
+
+    <div class="card" id="qCard">
+      <div class="qnum" id="qNum">QUESTION 01</div>
+      <div class="qtext" id="qText"></div>
+      <div class="choices" id="choices"></div>
+      <div id="feedbackBox"></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn" id="nextBtn" disabled>次へ ▶</button>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="screen-result" class="hidden">
+    <div class="result-hero">
+      <div class="result-score"><span id="finalScore">0</span> / 10</div>
+      <div class="result-total">正解</div>
+      <div class="rank-badge" id="rankBadge">称号：見習い</div>
+      <div class="rank-desc" id="rankDesc"></div>
+    </div>
+    <div class="review-wrap">
+      <div id="reviewList"></div>
+    </div>
+    <div class="center result-actions">
+      <button class="btn secondary" id="retryBtn">もう一度挑戦する</button>
+      <div class="footer-note">この銀河は、遠く、遠く離れた場所にある… ／ ファンメイド・非公式クイズ</div>
+    </div>
+  </div>
+
+  </div>
+
+</div>
+
+<script>
+/* ---------- starfield background ---------- */
+function makeStars(id, count, sizeMax, speedMin, speedMax){
+  const layer = document.getElementById(id);
+  let html = '';
+  for(let i=0;i<count;i++){
+    const x = Math.random()*100;
+    const y = Math.random()*100;
+    const s = (Math.random()*sizeMax+0.6).toFixed(2);
+    const dur = (Math.random()*(speedMax-speedMin)+speedMin).toFixed(2);
+    const delay = (Math.random()*6).toFixed(2);
+    html += `<div class="twinkle" style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;animation-duration:${dur}s;animation-delay:${delay}s;"></div>`;
+  }
+  layer.innerHTML = html;
+}
+makeStars('stars', 90, 1.6, 2, 4);
+makeStars('stars2', 60, 2.2, 3, 6);
+makeStars('stars3', 30, 2.8, 4, 8);
+
+/* ---------- quiz data (EP1 / ファントム・メナスのみ) ---------- */
+const QUESTIONS = [
+  {
+    q: "物語の冒頭、惑星ナブーを軍事封鎖し、後に侵略する勢力はどれ？",
+    choices: ["通商連合(トレード・フェデレーション)", "銀河共和国元老院", "ハット族", "ジャワ族"],
+    correct: 0,
+    explain: "通商連合がナブーへの課税に抗議して貿易航路を封鎖し、のちに地上侵略まで実行しました。"
+  },
+  {
+    q: "封鎖の交渉のため通商連合の司令船に送り込まれた2人のジェダイは、クワイ=ガン・ジンと誰？",
+    choices: ["メイス・ウィンドウ", "ヨーダ", "オビ=ワン・ケノービ", "ダース・モール"],
+    correct: 2,
+    explain: "クワイ=ガン・ジンとその弟子オビ=ワン・ケノービが交渉役として送られ、そこから物語が動き出します。"
+  },
+  {
+    q: "逃亡中の2人のジェダイとナブーの女王一行を助けた、水中でも生活できる原住民の種族は？",
+    choices: ["ウーキー族", "ガンガン族", "トワイレック族", "イウォーク族"],
+    correct: 1,
+    explain: "ガンガン族のジャー・ジャー・ビンクスが一行を自分たちの都市オンガンダに案内し、旅を共にします。"
+  },
+  {
+    q: "燃料調達のため一行がたどり着いた、少年アナキン・スカイウォーカーが暮らしていた砂の惑星は？",
+    choices: ["タトゥイーン", "ナブー", "コルサント", "ジオノーシス"],
+    correct: 0,
+    explain: "タトゥイーンは奴隷商人ワトーの店があり、アナキンと母シミがそこで暮らしていました。"
+  },
+  {
+    q: "アナキンが自らの手で組み立てたと語る、劇中に登場するプロトコル・ドロイドは？",
+    choices: ["R2-D2", "C-3PO", "BB-8", "IG-11"],
+    correct: 1,
+    explain: "まだ骨組みの状態のC-3POを、少年アナキンが自作していたという設定が描かれています。"
+  },
+  {
+    q: "アナキンが出場し、勝利することで一行の宇宙船の部品代を手に入れるレースは？",
+    choices: ["スピーダーバイク・チェイス", "ポッドレース", "宇宙艦隊戦", "アリーナ格闘"],
+    correct: 1,
+    explain: "アナキンは危険なポッドレースに人間として初めて優勝し、賞金と自由を手にします。"
+  },
+  {
+    q: "ナブーの女王として登場する人物は誰？",
+    choices: ["レイア・オーガナ", "パドメ・アミダラ", "モン・モスマ", "ジンタ・オク"],
+    correct: 1,
+    explain: "パドメ・アミダラ女王が、身分を隠しながら自国を守るために行動します。"
+  },
+  {
+    q: "クワイ=ガン・ジンと対決する、赤黒い顔と両刃のライトセーバーが特徴のシス卿は？",
+    choices: ["ダース・ベイダー", "ダース・シディアス", "ダース・モール", "カウント・ドゥークー"],
+    correct: 2,
+    explain: "ダース・モールは両刃のライトセーバーを操る戦闘要員として、要所でジェダイと切り結びます。"
+  },
+  {
+    q: "アナキンの潜在的な「フォースの強さ」を数値として測るために劇中で語られる架空の存在は？",
+    choices: ["カイバー・クリスタル", "ミディ=クロリアン", "ホロクロン", "コアクシウム"],
+    correct: 1,
+    explain: "クワイ=ガン・ジンはアナキンの血液検査でミディ=クロリアン値が異常に高いことを発見します。"
+  },
+  {
+    q: "物語の終盤、ナブー上空の戦いとほぼ同時に地上・湖上で繰り広げられる戦いの組み合わせとして正しいものは？",
+    choices: [
+      "ガンガン族の地上軍 対 通商連合のドロイド軍",
+      "共和国艦隊 対 通商連合艦隊のみ",
+      "ジェダイ evader vs 賞金稼ぎ軍団",
+      "ナブー王室親衛隊 対 ジャワ族"
+    ],
+    correct: 0,
+    explain: "ガンガン族の兵士たちが囮となって通商連合のドロイド軍と地上戦を繰り広げ、その間に女王たちが指揮官船を制圧しに向かいます。"
+  }
+];
+
+/* ---------- state ---------- */
+let current = 0;
+let score = 0;
+const answers = []; // {picked, correct, isCorrect}
+
+const screenIntro = document.getElementById('screen-intro');
+const screenQuiz = document.getElementById('screen-quiz');
+const screenResult = document.getElementById('screen-result');
+
+document.getElementById('startBtn').addEventListener('click', startQuiz);
+document.getElementById('skipCrawl').addEventListener('click', () => {
+  document.getElementById('crawlInner').style.animation = 'none';
+});
+document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+document.getElementById('retryBtn').addEventListener('click', resetQuiz);
+
+function startQuiz(){
+  screenIntro.classList.add('hidden');
+  screenQuiz.classList.remove('hidden');
+  renderQuestion();
+}
+
+function renderQuestion(){
+  const data = QUESTIONS[current];
+  document.getElementById('qCounter').textContent = `問題 ${current+1} / ${QUESTIONS.length}`;
+  document.getElementById('scoreLive').textContent = `正解 ${score}`;
+  document.getElementById('progressFill').style.width = `${(current/QUESTIONS.length)*100}%`;
+  document.getElementById('qNum').textContent = `QUESTION ${String(current+1).padStart(2,'0')}`;
+  document.getElementById('qText').textContent = data.q;
+
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = '';
+  data.choices.forEach((text, idx) => {
+    const div = document.createElement('div');
+    div.className = 'choice';
+    div.innerHTML = `<span class="mark">${String.fromCharCode(65+idx)}</span><span>${text}</span>`;
+    div.addEventListener('click', () => selectChoice(idx));
+    choicesEl.appendChild(div);
+  });
+
+  document.getElementById('feedbackBox').innerHTML = '';
+  document.getElementById('nextBtn').disabled = true;
+}
+
+function selectChoice(idx){
+  const data = QUESTIONS[current];
+  const choiceEls = document.querySelectorAll('#choices .choice');
+  if (choiceEls[0].classList.contains('locked')) return; // already answered
+
+  const isCorrect = idx === data.correct;
+  choiceEls.forEach((el, i) => {
+    el.classList.add('locked');
+    if (i === data.correct) el.classList.add('correct');
+    if (i === idx && !isCorrect) el.classList.add('wrong');
+    if (i === idx) el.classList.add('selected');
+  });
+
+  const fb = document.getElementById('feedbackBox');
+  if (isCorrect){
+    score++;
+    fb.innerHTML = `<div class="feedback ok">✓ 正解！</div><div class="explain">${data.explain}</div>`;
+  } else {
+    fb.innerHTML = `<div class="feedback ng">✗ 不正解…</div><div class="explain">正解は「${data.choices[data.correct]}」。${data.explain}</div>`;
+  }
+
+  answers.push({
+    q: data.q,
+    picked: data.choices[idx],
+    correctText: data.choices[data.correct],
+    isCorrect,
+    explain: data.explain
+  });
+
+  document.getElementById('scoreLive').textContent = `正解 ${score}`;
+  document.getElementById('nextBtn').disabled = false;
+}
+
+function nextQuestion(){
+  current++;
+  if (current >= QUESTIONS.length){
+    showResult();
+  } else {
+    renderQuestion();
+  }
+}
+
+function getRank(score){
+  if (score === 10) return {
+    title: "称号：フォースの申し子",
+    desc: "全問正解。まるでミディ=クロリアン値が振り切れているかのような記憶力です。オビ=ワンもきっと誇らしげにうなずくでしょう。"
+  };
+  if (score >= 8) return {
+    title: "称号：ジェダイ・パダワン",
+    desc: "ほぼ完璧な理解度。エピソード1の細部までしっかり記憶に刻まれています。"
+  };
+  if (score >= 6) return {
+    title: "称号：ナブー王室護衛官",
+    desc: "物語の大筋はばっちり。もう一度見返せば、さらに細かい部分まで思い出せるはずです。"
+  };
+  if (score >= 4) return {
+    title: "称号：見習いパイロット",
+    desc: "断片的には覚えているものの、まだ整理が必要なようです。もう一度エピソード1を見返してみましょう。"
+  };
+  return {
+    title: "称号：タトゥイーンの砂の民",
+    desc: "記憶はまだ砂に埋もれているようです。ぜひもう一度エピソード1を鑑賞してから再挑戦してください。"
+  };
+}
+
+function showResult(){
+  screenQuiz.classList.add('hidden');
+  screenResult.classList.remove('hidden');
+  document.getElementById('progressFill').style.width = '100%';
+
+  document.getElementById('finalScore').textContent = score;
+  const rank = getRank(score);
+  document.getElementById('rankBadge').textContent = rank.title;
+  document.getElementById('rankDesc').textContent = rank.desc;
+
+  const list = document.getElementById('reviewList');
+  list.innerHTML = '';
+  answers.forEach((a, i) => {
+    const div = document.createElement('div');
+    div.className = 'review-item';
+    div.innerHTML = `
+      <div class="review-head">
+        <span class="review-icon ${a.isCorrect ? 'ok' : 'ng'}">${a.isCorrect ? '✓' : '✗'}</span>
+        <span>Q${i+1}. ${a.q}</span>
+      </div>
+      <div class="review-ans">
+        あなたの回答：<b>${a.picked}</b>${a.isCorrect ? '' : `　／　正解：<b>${a.correctText}</b>`}
+      </div>
+      <div class="review-explain">${a.explain}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function resetQuiz(){
+  current = 0;
+  score = 0;
+  answers.length = 0;
+  screenResult.classList.add('hidden');
+  screenIntro.classList.remove('hidden');
+  const crawl = document.getElementById('crawlInner');
+  crawl.style.animation = 'none';
+  void crawl.offsetWidth;
+  crawl.style.animation = '';
+}
+</script>
+</body>
+</html>
