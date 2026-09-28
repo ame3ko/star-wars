@@ -3,306 +3,494 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EP1限定クイズ</title>
+<title>STAR WARS QUESTIONS</title>
 <style>
   :root{
+    /* palette */
     --gold:#f5d142;
+    --gold-hi:#fff3b8;
     --gold-dim:#a9860b;
     --blue:#3fa9f5;
-    --red:#ff3b3b;
-    --green:#3ddc84;
-    --bg:#000000;
-    --panel:#0a0e18;
-    --panel-border:#1c2440;
+    --cyan:#7dd8ff;
+    --red:#ff5f5f;
+    --green:#4ce09a;
+    --bg:#000004;
+    --ink:#e9edf8;
+    --ink-mid:#9fabc7;
+    --ink-dim:#69748f;
+    /* structure */
+    --line:rgba(125,216,255,.14);
+    --line-mid:rgba(125,216,255,.26);
+    --line-hi:rgba(125,216,255,.42);
+    --glass:rgba(10,24,38,.34);
+    --glass-soft:rgba(125,216,255,.045);
+    --scan:repeating-linear-gradient(180deg,rgba(125,216,255,.04) 0,rgba(125,216,255,.04) 1px,transparent 1px,transparent 3px);
+    --blur:blur(24px) saturate(170%);
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --bar:clamp(46px,6vh,58px);
+    --gutter:clamp(20px,4vw,64px);
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:#e8e8f0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;overflow-x:hidden;min-height:100%;}
-
-  /* starfield */
-  #stars, #stars2, #stars3{
-    position:fixed; inset:0; z-index:0; pointer-events:none;
-  }
-  .twinkle{position:absolute;background:#fff;border-radius:50%;opacity:.8;animation:tw linear infinite;}
-  @keyframes tw{
-    0%,100%{opacity:.15;}
-    50%{opacity:1;}
+  html,body{height:100%;}
+  body{
+    margin:0;padding:0;
+    background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
   }
 
-  .wrap{
-    position:relative;z-index:2;max-width:640px;margin:0 auto;
-    height:100dvh;height:100vh;
-    padding:14px 16px 12px;
-    display:flex;flex-direction:column;
+  /* ---------- ambient background ---------- */
+  #stars,#stars2,#stars3{position:fixed;inset:0;z-index:0;pointer-events:none;}
+  .twinkle{position:absolute;background:#fff;border-radius:50%;animation:tw linear infinite;}
+  @keyframes tw{0%,100%{opacity:.12;}50%{opacity:1;}}
+
+  .glow{position:fixed;z-index:1;pointer-events:none;border-radius:50%;filter:blur(100px);}
+  .glow-gold{width:44vw;height:44vw;background:var(--gold);top:-18vw;left:50%;transform:translateX(-50%);opacity:.14;}
+  .glow-blue{width:48vw;height:48vw;background:var(--blue);bottom:-20vw;right:-10vw;opacity:.26;}
+  .glow-cyan{width:42vw;height:42vw;background:var(--cyan);top:32%;left:-14vw;opacity:.18;}
+
+  /* ---------- app shell: topbar / main / bottombar, edge to edge ---------- */
+  .app{
+    position:relative;z-index:2;
+    height:100vh;height:100dvh;
+    display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+  }
+  /* pin each region to its own row: hiding a bar must not let .main slide up into the auto track */
+  .topbar{grid-row:1;}
+  .main{grid-row:2;}
+  .bottombar{grid-row:3;}
+
+  .bar{
+    position:relative;
+    min-height:var(--bar);
+    display:flex;align-items:center;gap:clamp(10px,2vw,22px);
+    padding:0 var(--gutter);
+    background:linear-gradient(180deg,rgba(5,12,22,.66),rgba(5,12,22,.14));
+    -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  }
+  .topbar{border-bottom:1px solid var(--line);z-index:5;}
+  .bottombar{border-top:1px solid var(--line);background:linear-gradient(0deg,rgba(5,12,22,.66),rgba(5,12,22,.14));}
+
+  /* hairline progress pinned to the very top edge of the viewport */
+  .progress{position:absolute;left:0;right:0;top:0;height:2px;background:rgba(125,216,255,.09);overflow:hidden;}
+  .progress-fill{
+    height:100%;width:0;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold) 60%,var(--gold-hi));
+    box-shadow:0 0 12px rgba(245,209,66,.65);
+    transition:width .45s var(--ease);
   }
 
-  /* logo header */
-  .header{flex:0 0 auto;}
-  .logo{
-    text-align:center;
-    font-weight:900;
-    letter-spacing:1.5px;
-    font-size:clamp(20px,5.5vw,30px);
-    background:linear-gradient(180deg,#fff2b0 0%,var(--gold) 45%,var(--gold-dim) 100%);
-    -webkit-background-clip:text;
-    background-clip:text;
-    color:transparent;
-    text-shadow:0 0 18px rgba(245,209,66,.3);
-    transform:perspective(300px) rotateX(6deg);
-    margin:2px 0 2px;
-    text-transform:uppercase;
+  .mark{
+    font-size:clamp(11px,1.05vw,13px);font-weight:900;
+    letter-spacing:.26em;text-transform:uppercase;white-space:nowrap;
+    background:linear-gradient(180deg,#fff6c9,var(--gold) 55%,var(--gold-dim));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
   }
-  .subtitle{
-    text-align:center;color:var(--blue);letter-spacing:3px;font-size:10.5px;
-    text-transform:uppercase;margin-bottom:10px;opacity:.85;
+  .meta{
+    margin-left:auto;display:flex;align-items:center;gap:clamp(8px,1.4vw,16px);
+    font-size:clamp(10px,.95vw,11.5px);letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-dim);white-space:nowrap;
   }
-  .divider{
-    height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);
-    margin:10px 0 12px;
-  }
+  .meta .sep{width:1px;height:11px;background:var(--line-mid);}
+  .meta .em{color:var(--cyan);}
+  .meta .pos{color:var(--gold);font-weight:800;letter-spacing:.1em;}
 
-  /* stage: scrollable content area between fixed header and bottom controls */
-  .stage{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:2px;}
-  .stage::-webkit-scrollbar{width:6px;}
-  .stage::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:4px;}
+  /* ---------- screens fill the main row exactly ---------- */
+  .main{position:relative;min-height:0;}
+  .screen{position:absolute;inset:0;animation:rise .45s var(--ease);}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  .hidden{display:none !important;}
 
-  /* crawl intro */
-  #screen-intro{height:100%;display:flex;flex-direction:column;}
-  .crawl-stage{
-    position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
-    background:radial-gradient(ellipse at 50% 100%, rgba(20,20,35,.4), transparent 70%);
-    border-radius:12px;margin-bottom:12px;
-    perspective:400px;perspective-origin:50% 100%;
-  }
-  .crawl-fade-top{
-    position:absolute;top:0;left:0;right:0;height:30%;
-    background:linear-gradient(#000 10%,transparent);
-    z-index:3;pointer-events:none;
-  }
+  /* state-driven chrome: crawl and select screens are full-bleed, no bars */
+  body[data-state="crawl"] .topbar,
+  body[data-state="crawl"] .bottombar,
+  body[data-state="intro"] .topbar,
+  body[data-state="intro"] .bottombar{display:none;}
+  body[data-state="quiz"] .bar-result,
+  body[data-state="result"] .bar-quiz{display:none;}
+  /* the opening crawl stays pure starfield, as in the films */
+  .glow{transition:opacity .8s var(--ease);}
+  body[data-state="crawl"] .glow{opacity:0;}
+
+  /* ---------- 1. crawl (root) : starfield + text only ---------- */
+  #screen-crawl{overflow:hidden;perspective:520px;perspective-origin:50% 100%;animation:none;}
+  .crawl-fade{position:absolute;top:0;left:0;right:0;height:36%;background:linear-gradient(#000 14%,transparent);z-index:3;pointer-events:none;}
   .crawl{
-    position:absolute;left:50%;bottom:0;width:84%;
-    transform-origin:50% 100%;
-    transform:translateX(-50%) rotateX(35deg);
-    text-align:center;
+    position:absolute;left:50%;bottom:0;width:84%;max-width:1060px;
+    transform:translateX(-50%) rotateX(34deg);transform-origin:50% 100%;text-align:center;
   }
   .crawl-inner{
-    color:var(--gold);
-    font-weight:700;
-    font-size:clamp(12px,2.6vw,17px);
-    line-height:1.55;
+    color:var(--gold);font-weight:700;
+    font-size:clamp(21px,3.5vw,38px);line-height:1.62;
+    text-shadow:0 0 26px rgba(245,209,66,.18);
     animation:crawlmove 22s linear forwards;
   }
-  .crawl-inner p{margin:0 0 1em;}
-  .crawl-inner h3{
-    font-size:1.15em;margin-bottom:.7em;letter-spacing:1.5px;
+  .crawl-inner h3{font-size:1.18em;margin:0 0 1em;letter-spacing:.06em;}
+  .crawl-inner p{margin:0 0 1.1em;}
+  @keyframes crawlmove{from{transform:translateY(85%);}to{transform:translateY(-172%);}}
+  .skip{
+    position:absolute;bottom:clamp(14px,3vh,28px);right:var(--gutter);z-index:4;
+    background:rgba(10,24,38,.4);color:var(--gold);
+    border:1px solid rgba(245,209,66,.32);border-radius:999px;
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    padding:8px 18px;font:inherit;font-size:11px;font-weight:700;
+    letter-spacing:.2em;text-transform:uppercase;cursor:pointer;
+    transition:background .25s var(--ease),border-color .25s var(--ease),transform .25s var(--ease);
   }
-  @keyframes crawlmove{
-    0%{transform:translateY(85%);}
-    100%{transform:translateY(-170%);}
+  .skip:hover{background:rgba(245,209,66,.14);border-color:rgba(245,209,66,.6);transform:translateY(-1px);}
+
+  /* ---------- 2. select screen : full-width hero + episode grid ---------- */
+  /* hero band on top, episode columns filling every remaining pixel below */
+  #screen-intro{display:grid;grid-template-rows:auto minmax(0,1fr);}
+  .hero{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:clamp(22px,5vh,58px) var(--gutter);
   }
-  .skip-btn{
-    position:absolute;bottom:10px;right:10px;z-index:4;
-    background:rgba(0,0,0,.6);color:var(--gold);border:1px solid var(--gold-dim);
-    padding:6px 12px;border-radius:20px;font-size:11px;cursor:pointer;letter-spacing:1px;
+  .hero-logo{
+    margin:0;font-weight:900;
+    font-size:clamp(26px,5.4vw,60px);letter-spacing:.06em;line-height:1.04;
+    text-transform:uppercase;
+    background:linear-gradient(180deg,#fff7cf 0%,var(--gold) 46%,var(--gold-dim) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 30px rgba(245,209,66,.24));
+  }
+  .hero-sub{
+    margin:clamp(10px,1.6vh,16px) 0 0;
+    font-size:clamp(9.5px,1vw,11.5px);letter-spacing:.34em;text-transform:uppercase;
+    color:var(--cyan);opacity:.82;
+  }
+  .hero-rule{
+    width:min(420px,60vw);height:1px;margin:clamp(14px,2vh,20px) auto;
+    background:linear-gradient(90deg,transparent,var(--line-hi),transparent);
+  }
+  .hero-note{
+    margin:0;max-width:56em;
+    font-size:clamp(10px,.95vw,11.5px);letter-spacing:.06em;line-height:1.9;color:var(--ink-dim);
+  }
+  .quiz-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));
+    border-top:1px solid var(--line);min-height:0;
+  }
+  .quiz-card{
+    position:relative;overflow:hidden;min-width:0;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;
+    gap:7px;padding:clamp(20px,3vh,40px) var(--gutter);
+    background:transparent;border:none;border-left:1px solid var(--line);
+    font:inherit;color:var(--ink);text-align:left;cursor:pointer;
+    transition:background-color .35s var(--ease);
+  }
+  .quiz-card:first-child{border-left:none;}
+  .quiz-card::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(0deg,rgba(245,209,66,.16),rgba(245,209,66,.02) 45%,transparent 75%);
+    opacity:0;transition:opacity .35s var(--ease);
+  }
+  .quiz-card::before{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+    background:linear-gradient(90deg,var(--gold),transparent);
+    transform:scaleX(0);transform-origin:0 50%;
+    transition:transform .4s var(--ease);
+  }
+  .quiz-card:hover::after,.quiz-card:focus-visible::after{opacity:1;}
+  .quiz-card:hover::before,.quiz-card:focus-visible::before{transform:scaleX(1);}
+  .quiz-card:focus-visible{outline:none;}
+  .quiz-ep{
+    position:relative;z-index:1;
+    font-size:clamp(9.5px,.95vw,11px);font-weight:800;letter-spacing:.3em;
+    text-transform:uppercase;color:var(--cyan);
+  }
+  .quiz-name{
+    position:relative;z-index:1;
+    font-size:clamp(19px,2vw,30px);font-weight:800;color:#fff;
+    letter-spacing:.01em;line-height:1.28;
+  }
+  .quiz-count{
+    position:relative;z-index:1;margin-top:clamp(8px,1.4vh,14px);
+    display:flex;align-items:center;gap:8px;
+    font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--gold);
+  }
+  .quiz-count .arrow{transition:transform .35s var(--ease);}
+  .quiz-card:hover .quiz-count .arrow{transform:translateX(5px);}
+
+  /* ---------- 3. quiz screen : split view, hairline divider, no boxes ---------- */
+  #screen-quiz{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,1fr);}
+  .pane{
+    position:relative;min-width:0;min-height:0;overflow-y:auto;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:clamp(22px,4vh,48px) var(--gutter);
+  }
+  .pane-q{gap:clamp(6px,1vh,10px);}
+  .pane-a{border-left:1px solid var(--line);align-items:center;}
+
+  .q-eyebrow{font-size:clamp(9.5px,.95vw,11px);font-weight:800;letter-spacing:.32em;text-transform:uppercase;color:var(--cyan);opacity:.85;}
+  .q-index{
+    font-weight:900;line-height:.84;letter-spacing:-.045em;
+    font-size:clamp(60px,9vw,136px);
+    background:linear-gradient(180deg,rgba(255,247,207,.95),rgba(245,209,66,.55) 48%,rgba(169,134,11,.1));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .q-rule{width:clamp(40px,5vw,72px);height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:clamp(8px,1.4vh,16px) 0;}
+  .q-text{
+    margin:0;max-width:21em;
+    font-size:clamp(18px,1.85vw,29px);font-weight:700;line-height:1.5;
+    color:#fff;letter-spacing:.005em;
   }
 
-  .btn{
-    display:inline-block;cursor:pointer;user-select:none;
-    background:linear-gradient(180deg,var(--gold) 0%,var(--gold-dim) 100%);
-    color:#161200;font-weight:800;border:none;border-radius:8px;
-    padding:14px 30px;font-size:16px;letter-spacing:1px;
-    box-shadow:0 0 18px rgba(245,209,66,.35);
-    transition:transform .15s ease, box-shadow .15s ease;
-  }
-  .btn:hover{transform:translateY(-2px);box-shadow:0 0 26px rgba(245,209,66,.55);}
-  .btn:active{transform:translateY(0);}
-  .btn.secondary{
-    background:linear-gradient(180deg,#2a3550,#161c2c);
-    color:var(--blue); box-shadow:0 0 14px rgba(63,169,245,.25);
-  }
-  .btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none;}
-  .center{text-align:center;}
-
-  /* progress */
-  .progress-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex:0 0 auto;}
-  .progress-track{flex:1;height:7px;background:#141a2c;border-radius:6px;overflow:hidden;border:1px solid var(--panel-border);}
-  .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),#8fd9ff);box-shadow:0 0 10px var(--blue);transition:width .35s ease;}
-  .progress-label{font-size:11.5px;color:var(--gold);letter-spacing:1px;white-space:nowrap;}
-
-  #screen-quiz{height:100%;display:flex;flex-direction:column;}
-
-  /* question card */
-  .card{
-    background:linear-gradient(180deg,var(--panel),#050710);
-    border:1px solid var(--panel-border);
-    border-radius:14px;padding:18px 18px;
-    box-shadow:0 0 0 1px rgba(255,255,255,.02), 0 10px 40px rgba(0,0,0,.5);
-    animation:fadein .35s ease;
-    overflow-y:auto;flex:1 1 auto;min-height:0;
-  }
-  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-
-  .qnum{color:var(--blue);font-size:11.5px;letter-spacing:2px;margin-bottom:6px;text-transform:uppercase;}
-  .qtext{font-size:16px;font-weight:700;line-height:1.5;margin-bottom:14px;color:#fff;}
-
-  .choices{display:grid;gap:8px;}
+  .choices{display:flex;flex-direction:column;gap:clamp(7px,1.1vh,11px);width:100%;max-width:620px;}
   .choice{
-    position:relative;text-align:left;
-    background:#0f1424;border:1px solid var(--panel-border);
-    color:#e8e8f0;padding:10px 14px;border-radius:10px;
-    font-size:14px;cursor:pointer;transition:all .15s ease;
-    display:flex;align-items:center;gap:10px;
+    position:relative;overflow:hidden;
+    display:flex;align-items:center;gap:clamp(11px,1.2vw,16px);
+    padding:clamp(12px,1.9vh,18px) clamp(15px,1.5vw,20px);
+    border:1px solid var(--line);border-radius:13px;
+    background:var(--glass-soft);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    font-size:clamp(13.5px,1.05vw,16px);line-height:1.5;
+    cursor:pointer;
+    transition:border-color .25s var(--ease),background-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);
   }
-  .choice .mark{
-    flex:0 0 22px;height:22px;border-radius:50%;border:1px solid var(--panel-border);
-    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gold-dim);
+  .choice::before{
+    content:"";position:absolute;left:0;top:50%;translate:0 -50%;
+    width:2px;height:0;border-radius:0 2px 2px 0;
+    background:var(--line-hi);transition:height .28s var(--ease),background-color .28s var(--ease);
   }
-  .choice:hover:not(.locked){border-color:var(--gold-dim);background:#141a30;}
-  .choice.locked{cursor:default;}
-  .choice.selected{border-color:var(--blue);box-shadow:0 0 12px rgba(63,169,245,.4);}
-  .choice.correct{
-    border-color:var(--green);background:rgba(61,220,132,.12);
-    box-shadow:0 0 16px rgba(61,220,132,.35);
+  .choice .key{
+    flex:0 0 auto;width:28px;height:28px;border-radius:9px;
+    border:1px solid var(--line-mid);
+    display:grid;place-items:center;
+    font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--ink-mid);
+    transition:background .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease);
   }
-  .choice.correct .mark{color:var(--green);border-color:var(--green);}
-  .choice.wrong{
-    border-color:var(--red);background:rgba(255,59,59,.12);
-    box-shadow:0 0 16px rgba(255,59,59,.35);
+  .choice:hover{border-color:var(--line-hi);background:rgba(125,216,255,.075);transform:translateX(3px);}
+  .choice:hover::before{height:44%;}
+  .choice:hover .key{color:var(--cyan);border-color:var(--line-hi);}
+  .choice.selected{
+    border-color:rgba(245,209,66,.55);
+    background:linear-gradient(90deg,rgba(245,209,66,.14),rgba(245,209,66,.035));
+    box-shadow:0 10px 30px rgba(245,209,66,.1);
+    transform:none;
   }
-  .choice.wrong .mark{color:var(--red);border-color:var(--red);}
+  .choice.selected::before{height:66%;background:var(--gold);}
+  .choice.selected .key{
+    background:linear-gradient(180deg,var(--gold-hi),var(--gold) 55%,var(--gold-dim));
+    border-color:transparent;color:#1b1500;
+  }
 
-  .feedback{
-    margin-top:12px;padding:10px 14px;border-radius:10px;font-weight:800;
-    letter-spacing:1.5px;text-align:center;font-size:14px;animation:pop .25s ease;
+  /* ---------- 4. result screen : score / review split ---------- */
+  #screen-result{display:grid;grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);}
+  .res-hero{
+    min-height:0;overflow-y:auto;
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+    padding:clamp(22px,4vh,48px) var(--gutter);
   }
-  @keyframes pop{from{transform:scale(.9);opacity:0;}to{transform:scale(1);opacity:1;}}
-  .feedback.ok{background:rgba(61,220,132,.12);color:var(--green);border:1px solid var(--green);}
-  .feedback.ng{background:rgba(255,59,59,.12);color:var(--red);border:1px solid var(--red);}
-  .explain{margin-top:8px;font-size:12.5px;color:#b9c2d9;line-height:1.6;padding:0 2px;}
-
-  .nav-row{display:flex;justify-content:flex-end;margin-top:12px;flex:0 0 auto;padding-top:10px;}
-
-  /* result screen */
-  #screen-result{height:100%;display:flex;flex-direction:column;}
-  .result-hero{text-align:center;padding:6px 10px 4px;flex:0 0 auto;}
-  .result-score{
-    font-size:38px;font-weight:900;color:var(--gold);
-    text-shadow:0 0 20px rgba(245,209,66,.5);
+  .res-set{font-size:clamp(9.5px,.95vw,11px);font-weight:800;letter-spacing:.28em;text-transform:uppercase;color:var(--cyan);}
+  .res-score{
+    margin:clamp(6px,1.2vh,14px) 0 0;display:flex;align-items:baseline;gap:4px;
+    font-weight:900;line-height:.9;letter-spacing:-.04em;
+    font-size:clamp(56px,8vw,118px);
+    background:linear-gradient(180deg,#fff7cf,var(--gold) 52%,var(--gold-dim));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
   }
-  .result-total{color:#b9c2d9;font-size:13px;margin-top:-4px;}
-  .rank-badge{
-    display:inline-block;margin-top:8px;padding:7px 18px;border-radius:24px;
-    border:1px solid var(--gold-dim);color:var(--gold);font-weight:800;letter-spacing:1.5px;
-    background:rgba(245,209,66,.08);font-size:12.5px;
+  .res-score .of{font-size:.3em;font-weight:800;letter-spacing:0;
+    background:linear-gradient(180deg,var(--ink-mid),var(--ink-dim));
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .res-caption{margin:6px 0 0;font-size:clamp(10px,.95vw,11.5px);letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);}
+  .res-rank{
+    margin-top:clamp(14px,2.2vh,22px);padding:9px 20px;border-radius:999px;
+    border:1px solid rgba(245,209,66,.45);background:rgba(245,209,66,.08);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    color:var(--gold);font-size:clamp(11.5px,1.1vw,13.5px);font-weight:800;letter-spacing:.1em;
   }
-  .rank-desc{margin-top:8px;color:#c7cfe6;font-size:12.5px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6;}
+  .res-desc{margin:clamp(10px,1.8vh,16px) 0 0;max-width:34em;font-size:clamp(11.5px,1.05vw,13.5px);line-height:1.85;color:var(--ink-mid);}
 
-  .review-wrap{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:2px;}
-  .review-wrap::-webkit-scrollbar{width:6px;}
-  .review-wrap::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:4px;}
-
-  .review-item{
-    background:#0f1424;border:1px solid var(--panel-border);border-radius:10px;
-    padding:10px 12px;margin-bottom:8px;
+  .res-review{
+    min-height:0;overflow-y:auto;border-left:1px solid var(--line);
+    padding:clamp(16px,2.6vh,28px) var(--gutter);
   }
-  .review-head{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:700;color:#fff;}
-  .review-icon{flex:0 0 18px;font-weight:900;}
-  .review-icon.ok{color:var(--green);}
-  .review-icon.ng{color:var(--red);}
-  .review-ans{margin:6px 0 0 26px;font-size:12px;color:#aab3cc;line-height:1.5;}
-  .review-ans b{color:#e8e8f0;}
-  .review-explain{margin:4px 0 0 26px;font-size:11.5px;color:#8b95b3;line-height:1.5;}
+  .rev{padding:clamp(12px,1.8vh,16px) 0;border-bottom:1px solid rgba(125,216,255,.09);}
+  .rev:last-child{border-bottom:none;}
+  .rev-q{display:flex;gap:11px;align-items:flex-start;font-size:clamp(12.5px,1vw,14px);font-weight:700;color:#fff;line-height:1.6;}
+  .rev-ic{flex:0 0 auto;width:18px;height:18px;margin-top:1px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:900;}
+  .rev-ic.ok{color:var(--green);border:1px solid rgba(76,224,154,.45);background:rgba(76,224,154,.1);}
+  .rev-ic.ng{color:var(--red);border:1px solid rgba(255,95,95,.42);background:rgba(255,95,95,.1);}
+  .rev-body{margin:7px 0 0 29px;}
+  .rev-ans{font-size:clamp(11px,1vw,12.5px);line-height:1.7;color:var(--ink-mid);}
+  .rev-ans b{color:var(--ink);font-weight:700;}
+  .rev-ans .ok{color:var(--green);}
+  .rev-ans .ng{color:var(--red);}
+  .rev-ex{margin-top:4px;font-size:clamp(10.5px,.95vw,12px);line-height:1.75;color:var(--ink-dim);}
 
-  .footer-note{text-align:center;color:#5b6480;font-size:10px;margin-top:10px;letter-spacing:1px;flex:0 0 auto;}
-  .result-actions{flex:0 0 auto;padding-top:10px;}
+  /* ---------- controls ---------- */
+  .btn{
+    font:inherit;cursor:pointer;user-select:none;white-space:nowrap;
+    padding:clamp(9px,1.4vh,12px) clamp(18px,2vw,28px);border-radius:11px;
+    font-size:clamp(12px,1.05vw,14px);font-weight:800;letter-spacing:.1em;
+    border:1px solid transparent;
+    transition:transform .25s var(--ease),box-shadow .25s var(--ease),background .25s var(--ease),border-color .25s var(--ease);
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,var(--gold-hi) 0%,var(--gold) 38%,var(--gold-dim) 100%);
+    color:#1b1500;box-shadow:0 8px 26px rgba(245,209,66,.26),inset 0 1px 0 rgba(255,255,255,.45);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(245,209,66,.4),inset 0 1px 0 rgba(255,255,255,.55);}
+  .btn-ghost{
+    background:rgba(125,216,255,.05);color:var(--cyan);border-color:var(--line-mid);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  }
+  .btn-ghost:hover{background:rgba(125,216,255,.12);border-color:var(--line-hi);transform:translateY(-2px);}
+  .btn:active{transform:translateY(0);}
+  .btn:disabled{opacity:.26;cursor:not-allowed;transform:none;box-shadow:none;}
+  .bar-quiz,.bar-result{display:flex;align-items:center;gap:clamp(10px,2vw,20px);width:100%;}
+  .bar-note{
+    flex:1 1 auto;text-align:center;min-width:0;
+    font-size:clamp(9.5px,.9vw,11px);letter-spacing:.1em;color:var(--ink-dim);
+  }
 
-  .hidden{display:none !important;}
+  /* ---------- scrollbars ---------- */
+  .pane::-webkit-scrollbar,.res-review::-webkit-scrollbar,.res-hero::-webkit-scrollbar,#screen-intro::-webkit-scrollbar{width:5px;}
+  .pane::-webkit-scrollbar-thumb,.res-review::-webkit-scrollbar-thumb,.res-hero::-webkit-scrollbar-thumb,#screen-intro::-webkit-scrollbar-thumb{background:var(--line-mid);border-radius:4px;}
+  .pane::-webkit-scrollbar-track,.res-review::-webkit-scrollbar-track{background:transparent;}
+
+  /* ---------- narrow / short viewports : stack the split views ---------- */
+  @media (max-width:860px){
+    :root{--gutter:clamp(16px,5vw,26px);}
+    #screen-intro{grid-template-rows:auto auto;align-content:center;overflow-y:auto;}
+    .quiz-grid{border-top:none;}
+    .quiz-card{
+      border-left:none;border-top:1px solid var(--line);
+      justify-content:center;gap:5px;padding:clamp(16px,2.4vh,22px) var(--gutter);
+    }
+    .quiz-card:first-child{border-top:1px solid var(--line);}
+    .quiz-name{font-size:clamp(17px,4.6vw,22px);}
+    #screen-quiz{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);}
+    .pane{justify-content:flex-start;padding:clamp(16px,2.6vh,24px) var(--gutter);}
+    .pane-q{padding-bottom:clamp(12px,2vh,18px);}
+    .pane-a{border-left:none;border-top:1px solid var(--line);align-items:stretch;}
+    .q-index{font-size:clamp(44px,13vw,72px);}
+    .q-text{max-width:none;font-size:clamp(16px,4.2vw,21px);}
+    .choices{max-width:none;}
+    #screen-result{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);}
+    .res-hero{align-items:center;text-align:center;padding-bottom:clamp(14px,2vh,20px);}
+    .res-desc{display:none;}
+    .res-review{border-left:none;border-top:1px solid var(--line);}
+    /* the wordmark and the episode name are both nowrap; together they force the bar wider than the screen */
+    .topbar .mark{display:none;}
+    .meta{margin-left:0;width:100%;min-width:0;justify-content:space-between;}
+    .meta .em{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+    .meta .answered{display:none;}
+    .bar-note{display:none;}
+    .bar-quiz,.bar-result{justify-content:space-between;}
+  }
+  @media (max-height:560px){
+    .q-index{font-size:clamp(40px,7vh,64px);}
+    .res-score{font-size:clamp(40px,10vh,72px);}
+    .res-desc{display:none;}
+  }
 </style>
 </head>
-<body>
+<body data-state="crawl">
 
 <div id="stars"></div>
 <div id="stars2"></div>
 <div id="stars3"></div>
+<div class="glow glow-gold"></div>
+<div class="glow glow-blue"></div>
+<div class="glow glow-cyan"></div>
 
-<div class="wrap">
+<div class="app">
 
-  <div class="header">
-    <div class="logo">EP1限定クイズ</div>
-    <div class="subtitle">～ エピソード1しか見ていない者への試練 ～</div>
-  </div>
+  <header class="bar topbar">
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="mark">Star Wars Questions</div>
+    <div class="meta">
+      <span class="em" id="metaSet">Episode I</span>
+      <span class="sep"></span>
+      <span class="pos" id="metaPos">01 / 10</span>
+      <span class="sep"></span>
+      <span class="answered" id="metaAnswered">回答済み 0 / 10</span>
+    </div>
+  </header>
 
-  <div class="stage">
+  <main class="main">
 
-  <!-- INTRO / CRAWL SCREEN -->
-  <div id="screen-intro">
-    <div class="crawl-stage">
-      <div class="crawl-fade-top"></div>
+    <!-- 1. CRAWL (root) -->
+    <section class="screen" id="screen-crawl">
+      <div class="crawl-fade"></div>
       <div class="crawl">
         <div class="crawl-inner" id="crawlInner">
-          <h3>episode1限定<br>ルール説明</h3>
+          <h3>ルール説明</h3>
           <p>
             あなたはスター・ウォーズを一度も見たことがなかった。<br>
             そんなあなたに、ある日<br>
-            「エピソード1／ファントム・メナス」だけが見せられた。
+            プリクエル三部作が見せられた。
           </p>
           <p>
             これから出題される全10問は、<br>
-            すべて<b>エピソード1で描かれた内容のみ</b>から作られている。
+            すべて<b>選んだエピソードで描かれた内容のみ</b>から作られている。
           </p>
           <p>
-            後の episode やスピンオフの知識は一切問われない。<br>
+            他のエピソードやスピンオフの知識は一切問われない。<br>
             映画で見た記憶だけを頼りに、フォースと共にあれ。
           </p>
           <p>
-            準備ができたら、下のボタンで<br>
-            クイズを開始せよ。
+            覚悟ができたら、次の画面で<br>
+            挑むエピソードを選べ。
           </p>
         </div>
       </div>
-      <button class="skip-btn" id="skipCrawl">スキップ ▶</button>
-    </div>
-    <div class="center" style="flex:0 0 auto;padding-top:10px;">
-      <button class="btn" id="startBtn">クイズを開始する</button>
-    </div>
-  </div>
+      <button class="skip" id="skipCrawl">スキップ</button>
+    </section>
 
-  <!-- QUIZ SCREEN -->
-  <div id="screen-quiz" class="hidden">
-    <div class="progress-row">
-      <div class="progress-label" id="qCounter">問題 1 / 10</div>
-      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
-      <div class="progress-label" id="scoreLive">正解 0</div>
-    </div>
+    <!-- 2. EPISODE SELECT -->
+    <section class="screen hidden" id="screen-intro">
+      <div class="hero">
+        <h1 class="hero-logo">Star Wars Questions</h1>
+        <p class="hero-sub">Test your memory, episode by episode</p>
+        <div class="hero-rule"></div>
+        <p class="hero-note">挑戦するエピソードを選択　／　全10問・4択　／　全問回答後にまとめて採点し、称号ランクと全問レビューを表示</p>
+      </div>
+      <div class="quiz-grid" id="quizList"></div>
+    </section>
 
-    <div class="card" id="qCard">
-      <div class="qnum" id="qNum">QUESTION 01</div>
-      <div class="qtext" id="qText"></div>
-      <div class="choices" id="choices"></div>
-      <div id="feedbackBox"></div>
-    </div>
-    <div class="nav-row">
-      <button class="btn" id="nextBtn" disabled>次へ ▶</button>
-    </div>
-  </div>
+    <!-- 3. QUIZ -->
+    <section class="screen hidden" id="screen-quiz">
+      <div class="pane pane-q">
+        <div class="q-eyebrow">Question</div>
+        <div class="q-index" id="qIndex">01</div>
+        <div class="q-rule"></div>
+        <p class="q-text" id="qText"></p>
+      </div>
+      <div class="pane pane-a">
+        <div class="choices" id="choices"></div>
+      </div>
+    </section>
 
-  <!-- RESULT SCREEN -->
-  <div id="screen-result" class="hidden">
-    <div class="result-hero">
-      <div class="result-score"><span id="finalScore">0</span> / 10</div>
-      <div class="result-total">正解</div>
-      <div class="rank-badge" id="rankBadge">称号：見習い</div>
-      <div class="rank-desc" id="rankDesc"></div>
-    </div>
-    <div class="review-wrap">
-      <div id="reviewList"></div>
-    </div>
-    <div class="center result-actions">
-      <button class="btn secondary" id="retryBtn">もう一度挑戦する</button>
-      <div class="footer-note">この銀河は、遠く、遠く離れた場所にある… ／ ファンメイド・非公式クイズ</div>
-    </div>
-  </div>
+    <!-- 4. RESULT -->
+    <section class="screen hidden" id="screen-result">
+      <div class="res-hero">
+        <div class="res-set" id="resultSetLabel"></div>
+        <div class="res-score"><span id="finalScore">0</span><span class="of">/ <span id="finalTotal">10</span></span></div>
+        <p class="res-caption">Correct answers</p>
+        <div class="res-rank" id="rankBadge"></div>
+        <p class="res-desc" id="rankDesc"></p>
+      </div>
+      <div class="res-review" id="reviewList"></div>
+    </section>
 
-  </div>
+  </main>
+
+  <footer class="bar bottombar">
+    <div class="bar-quiz">
+      <button class="btn btn-ghost" id="prevBtn" disabled>◀ 前へ</button>
+      <span class="bar-note">採点は全問回答後にまとめて行われる ／ 「前へ」で選び直せる</span>
+      <button class="btn btn-primary" id="nextBtn" disabled>次へ ▶</button>
+    </div>
+    <div class="bar-result">
+      <button class="btn btn-ghost" id="retryBtn">◀ エピソード選択へ</button>
+      <span class="bar-note">この銀河は、遠く、遠く離れた場所にある… ／ ファンメイド・非公式クイズ</span>
+    </div>
+  </footer>
 
 </div>
 
@@ -325,8 +513,13 @@ makeStars('stars', 90, 1.6, 2, 4);
 makeStars('stars2', 60, 2.2, 3, 6);
 makeStars('stars3', 30, 2.8, 4, 8);
 
-/* ---------- quiz data (EP1 / ファントム・メナスのみ) ---------- */
-const QUESTIONS = [
+/* ---------- quiz data: each entry is a selectable 10-question set. add more sets here (ep2, ep3, ...) ---------- */
+const QUIZ_SETS = [
+  {
+    id: 'ep1',
+    ep: 'EPISODE I',
+    name: 'ファントム・メナス',
+    questions: [
   {
     q: "物語の冒頭、惑星ナブーを軍事封鎖し、後に侵略する勢力はどれ？",
     choices: ["通商連合(トレード・フェデレーション)", "銀河共和国元老院", "ハット族", "ジャワ族"],
@@ -341,9 +534,9 @@ const QUESTIONS = [
   },
   {
     q: "逃亡中の2人のジェダイとナブーの女王一行を助けた、水中でも生活できる原住民の種族は？",
-    choices: ["ウーキー族", "ガンガン族", "トワイレック族", "イウォーク族"],
+    choices: ["ウーキー族", "グンガン族", "トワイレック族", "イウォーク族"],
     correct: 1,
-    explain: "ガンガン族のジャー・ジャー・ビンクスが一行を自分たちの都市オンガンダに案内し、旅を共にします。"
+    explain: "グンガン族のジャー・ジャー・ビンクスが一行を水中都市オトゥー・ガンガに案内し、旅を共にします。"
   },
   {
     q: "燃料調達のため一行がたどり着いた、少年アナキン・スカイウォーカーが暮らしていた砂の惑星は？",
@@ -382,112 +575,303 @@ const QUESTIONS = [
     explain: "クワイ=ガン・ジンはアナキンの血液検査でミディ=クロリアン値が異常に高いことを発見します。"
   },
   {
-    q: "物語の終盤、ナブー上空の戦いとほぼ同時に地上・湖上で繰り広げられる戦いの組み合わせとして正しいものは？",
+    q: "物語の終盤、ナブー上空の戦いとほぼ同時に地上で繰り広げられる戦いの組み合わせとして正しいものは？",
     choices: [
-      "ガンガン族の地上軍 対 通商連合のドロイド軍",
+      "グンガン族の地上軍 対 通商連合のドロイド軍",
       "共和国艦隊 対 通商連合艦隊のみ",
-      "ジェダイ evader vs 賞金稼ぎ軍団",
+      "ジェダイたち 対 賞金稼ぎの軍勢",
       "ナブー王室親衛隊 対 ジャワ族"
     ],
     correct: 0,
-    explain: "ガンガン族の兵士たちが囮となって通商連合のドロイド軍と地上戦を繰り広げ、その間に女王たちが指揮官船を制圧しに向かいます。"
+    explain: "グンガン族の兵士たちが囮となって通商連合のドロイド軍と地上戦を繰り広げ、その間に女王たちが指揮官船を制圧しに向かいます。"
+  }
+    ]
+  },
+  {
+    id: 'ep2',
+    ep: 'EPISODE II',
+    name: 'クローンの攻撃',
+    questions: [
+  {
+    q: "物語冒頭、元老院出席のためコルサントに到着した上院議員パドメ・アミダラを狙う事件は？",
+    choices: ["輸送船の爆破", "毒ガスの散布", "元老院での銃撃", "食事への毒物混入"],
+    correct: 0,
+    explain: "パドメの身代わりを務めていた侍女(女官)コルデが、輸送船の爆破によって命を落とします。"
+  },
+  {
+    q: "パドメの護衛を命じられる2人のジェダイは、オビ=ワン・ケノービと誰？",
+    choices: ["メイス・ウィンドウ", "アナキン・スカイウォーカー", "キ=アディ=ムンディ", "プロ・クーン"],
+    correct: 1,
+    explain: "師オビ=ワンと、その弟子として成長したアナキンが揃って護衛を命じられます。"
+  },
+  {
+    q: "パドメの寝室に毒虫(コウフン)を送り込む探査ドロイドを操っていた、変身能力を持つ賞金稼ぎは？",
+    choices: ["ジャンゴ・フェット", "ザム・ウェセル", "アウラ・シング", "ボバ・フェット"],
+    correct: 1,
+    explain: "変身能力を持つクロウダイト族の賞金稼ぎザム・ウェセルが、探査ドロイドを使って2度目の暗殺を実行しようとしていました。"
+  },
+  {
+    q: "オビ=ワンが手がかりを追って訪れる、雨に覆われた海洋の惑星で、共和国のために密かにクローン軍が製造されていた場所は？",
+    choices: ["カミーノ", "ジオノーシス", "コルサント", "ムスタファー"],
+    correct: 0,
+    explain: "オビ=ワンは星図から消されていた海洋惑星カミーノにたどり着き、巨大なクローン軍の存在を知ります。"
+  },
+  {
+    q: "カミーノで製造されていたクローン軍の遺伝的な原型（テンプレート）となった賞金稼ぎは？",
+    choices: ["ダース・モール", "グリーバス将軍", "ジャンゴ・フェット", "エンボ"],
+    correct: 2,
+    explain: "賞金稼ぎジャンゴ・フェットが自身の遺伝子を提供する代わりに、無改造の複製（息子ボバ）を得る契約を結んでいました。"
+  },
+  {
+    q: "母の身を案じる悪夢を見たアナキンが、パドメと共に向かった、彼の故郷である砂の惑星は？",
+    choices: ["ナブー", "タトゥイーン", "ジオノーシス", "コレリア"],
+    correct: 1,
+    explain: "ナブーに身を隠すよう命じられていたアナキンでしたが、母シミを案じる夢に突き動かされ、パドメと共に故郷タトゥイーンへ向かいます。"
+  },
+  {
+    q: "タトゥイーンでタスケン・レイダーに捕らえられ、アナキンが救出に向かうも間に合わず死なせてしまう人物は？",
+    choices: ["パドメ・アミダラ", "シミ・スカイウォーカー", "ワトー", "ベルー・ラーズ"],
+    correct: 1,
+    explain: "母シミの死をきっかけに、アナキンは怒りに任せてタスケン・レイダーの野営地を皆殺しにしてしまいます。"
+  },
+  {
+    q: "ジオノーシスでオビ=ワンを捕らえ、後に分離主義勢力を裏で率いていたことが判明する伯爵は？",
+    choices: ["ドゥークー", "パルパティーン", "ネート・ガンレイ", "サン・ヒル"],
+    correct: 0,
+    explain: "ドゥークー伯爵は分離主義同盟の表向きの指導者であり、ジオノーシスの闘技場で処刑を指揮します。"
+  },
+  {
+    q: "ジオノーシスの闘技場での戦いの後、共和国が分離主義軍と戦うために初めて実戦投入する軍隊は？",
+    choices: ["ドロイド軍団", "クローン兵士軍団", "ウーキー族の戦士団", "マンダロリアン傭兵団"],
+    correct: 1,
+    explain: "ヨーダ率いるクローン兵士軍団が援軍として到着し、これが最初のクローン大戦の始まりとなります。"
+  },
+  {
+    q: "ジオノーシスでオビ=ワンとアナキンを相手に戦ったドゥークー伯爵の、劇中で明かされるシスとしての称号は？",
+    choices: ["ダース・モール", "ダース・ティラナス", "ダース・プレガス", "ダース・マウル"],
+    correct: 1,
+    explain: "ヨーダとの一騎打ちの後に逃走したドゥークーが、実はシス卿ダース・ティラナスであることが示唆されます。"
+  }
+    ]
+  },
+  {
+    id: 'ep3',
+    ep: 'EPISODE III',
+    name: 'シスの復讐',
+    questions: [
+  {
+    q: "物語冒頭、パルパティーン最高議長を誘拐したドロイド軍の最高司令官は？",
+    choices: ["ダース・モール", "グリーバス将軍", "ドゥークー伯爵", "ネート・ガンレイ"],
+    correct: 1,
+    explain: "半機械の体を持つグリーバス将軍が旗艦インビジブル・ハンドに議長を捕らえ、コルサント上空に潜んでいました。"
+  },
+  {
+    q: "アナキンとオビ=ワンが議長救出のため潜入する、グリーバスの旗艦の名前は？",
+    choices: ["インビジブル・ハンド", "エグゼキューター", "リサージェント級", "デス・スター"],
+    correct: 0,
+    explain: "2人はスターファイターで旗艦インビジブル・ハンドに突入し、救出作戦を開始します。"
+  },
+  {
+    q: "旗艦内での戦闘の末、捕らえられていたドゥークー伯爵に対してアナキンが取る行動は？",
+    choices: ["降伏を受け入れて拘束する", "パルパティーンに促されて処刑する", "オビ=ワンに引き渡す", "見逃して逃がす"],
+    correct: 1,
+    explain: "アナキンはドゥークーの両腕を切り落として無力化しますが、パルパティーンに「殺せ」とそそのかされ、丸腰の相手の首を斬って処刑してしまいます。"
+  },
+  {
+    q: "アナキンが物語を通して繰り返し見る悪夢で、命を落とすことを予知してしまう相手は？",
+    choices: ["オビ=ワン・ケノービ", "パドメ・アミダラ", "ヨーダ", "パルパティーン"],
+    correct: 1,
+    explain: "妻パドメが出産で命を落とす夢に苦しめられ、これがアナキンが闇落ちする大きな動機になります。"
+  },
+  {
+    q: "パルパティーンがアナキンに語る、死者を蘇らせる力すら持つとされる伝説上のシス卿の名は？",
+    choices: ["プレガス・ザ・ワイズ", "エクザー・クン", "ダース・ベイン", "ダース・タニス"],
+    correct: 0,
+    explain: "パルパティーンはプレガス・ザ・ワイズの伝説を語り、フォースの力で死を克服できるかもしれないとアナキンを誘惑します。"
+  },
+  {
+    q: "メイス・ウィンドウがパルパティーンの正体を暴き対決する際、シスとしてのパルパティーンの称号は？",
+    choices: ["ダース・シディアス", "ダース・プレガス", "ダース・ティラナス", "ダース・ベイダー"],
+    correct: 0,
+    explain: "パルパティーンの正体は暗黒卿ダース・シディアスであり、メイスに正体を見破られ執務室で対決になります。"
+  },
+  {
+    q: "メイスとの対決の末、アナキンが裏切りに転じたことで発令される、ジェダイ壊滅のための命令の名称は？",
+    choices: ["オーダー66", "オーダー99", "ダイレクティブ7", "プロトコル・ゼロ"],
+    correct: 0,
+    explain: "パルパティーンが全銀河のクローン軍に発したオーダー66により、各地のジェダイが一斉に殺害されていきます。"
+  },
+  {
+    q: "パルパティーンへの忠誠を誓い、シスの一員として生まれ変わったアナキンが名乗ることになる名は？",
+    choices: ["ダース・モール", "ダース・ベイダー", "ダース・ティラナス", "ダース・マランク"],
+    correct: 1,
+    explain: "銀河帝国の誕生と同時に、アナキン・スカイウォーカーはダース・ベイダーとして生まれ変わります。"
+  },
+  {
+    q: "アナキンとオビ=ワンの最終決闘の舞台となる、溶岩に覆われた惑星は？",
+    choices: ["ムスタファー", "ジオノーシス", "コルサント", "カシーック"],
+    correct: 0,
+    explain: "鉱物採掘惑星ムスタファーの溶岩地帯で、かつての師弟が壮絶な戦いを繰り広げます。"
+  },
+  {
+    q: "決闘に敗れ瀕死となったアナキンが帝国の技術で再生を果たす一方、パドメが出産後に息を引き取り誕生する双子は？",
+    choices: ["ルークとレイア", "ハンとチューイ", "ラースとオーウェン", "ベイルとブレハ"],
+    correct: 0,
+    explain: "パドメは双子ルークとレイアを出産した直後に命を落とし、2人はそれぞれ別々の場所で密かに育てられることになります。"
+  }
+    ]
   }
 ];
 
 /* ---------- state ---------- */
+let activeSet = null;
 let current = 0;
 let score = 0;
-const answers = []; // {picked, correct, isCorrect}
+let userAnswers = []; // selected choice index per question, null = unanswered
+const answers = []; // {picked, correct, isCorrect} - built at grading time
 
+const screenCrawl = document.getElementById('screen-crawl');
 const screenIntro = document.getElementById('screen-intro');
 const screenQuiz = document.getElementById('screen-quiz');
 const screenResult = document.getElementById('screen-result');
+const crawlInner = document.getElementById('crawlInner');
+const quizListEl = document.getElementById('quizList');
 
-document.getElementById('startBtn').addEventListener('click', startQuiz);
-document.getElementById('skipCrawl').addEventListener('click', () => {
-  document.getElementById('crawlInner').style.animation = 'none';
-});
-document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+renderQuizList();
+
+document.getElementById('skipCrawl').addEventListener('click', goToIntro);
+crawlInner.addEventListener('animationend', goToIntro);
+document.getElementById('prevBtn').addEventListener('click', goToPrevQuestion);
+document.getElementById('nextBtn').addEventListener('click', goToNextQuestion);
 document.getElementById('retryBtn').addEventListener('click', resetQuiz);
 
-function startQuiz(){
+/* the shell shows/hides its top and bottom bars from this single flag */
+function setState(state){
+  document.body.dataset.state = state;
+}
+
+function goToIntro(){
+  screenCrawl.classList.add('hidden');
+  screenIntro.classList.remove('hidden');
+  setState('intro');
+}
+
+function renderQuizList(){
+  quizListEl.innerHTML = '';
+  QUIZ_SETS.forEach(set => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-card';
+    btn.innerHTML = `
+      <span class="quiz-ep">${set.ep}</span>
+      <span class="quiz-name">${set.name}</span>
+      <span class="quiz-count">全${set.questions.length}問 <span class="arrow">▶</span></span>
+    `;
+    btn.addEventListener('click', () => startQuiz(set));
+    quizListEl.appendChild(btn);
+  });
+}
+
+function startQuiz(set){
+  activeSet = set;
+  current = 0;
+  score = 0;
+  answers.length = 0;
+  userAnswers = new Array(set.questions.length).fill(null);
   screenIntro.classList.add('hidden');
   screenQuiz.classList.remove('hidden');
+  setState('quiz');
+  document.getElementById('metaSet').textContent = `${set.ep} ・ ${set.name}`;
   renderQuestion();
 }
 
+function answeredCount(){
+  return userAnswers.filter(a => a !== null).length;
+}
+
+function updateAnsweredMeta(){
+  document.getElementById('metaAnswered').textContent =
+    `回答済み ${answeredCount()} / ${activeSet.questions.length}`;
+}
+
 function renderQuestion(){
-  const data = QUESTIONS[current];
-  document.getElementById('qCounter').textContent = `問題 ${current+1} / ${QUESTIONS.length}`;
-  document.getElementById('scoreLive').textContent = `正解 ${score}`;
-  document.getElementById('progressFill').style.width = `${(current/QUESTIONS.length)*100}%`;
-  document.getElementById('qNum').textContent = `QUESTION ${String(current+1).padStart(2,'0')}`;
+  const questions = activeSet.questions;
+  const data = questions[current];
+  const isLast = current === questions.length - 1;
+  document.getElementById('metaPos').textContent =
+    `${String(current+1).padStart(2,'0')} / ${questions.length}`;
+  updateAnsweredMeta();
+  document.getElementById('progressFill').style.width = `${((current+1)/questions.length)*100}%`;
+  document.getElementById('qIndex').textContent = String(current+1).padStart(2,'0');
   document.getElementById('qText').textContent = data.q;
 
   const choicesEl = document.getElementById('choices');
   choicesEl.innerHTML = '';
   data.choices.forEach((text, idx) => {
     const div = document.createElement('div');
-    div.className = 'choice';
-    div.innerHTML = `<span class="mark">${String.fromCharCode(65+idx)}</span><span>${text}</span>`;
+    div.className = 'choice' + (userAnswers[current] === idx ? ' selected' : '');
+    div.innerHTML = `<span class="key">${String.fromCharCode(65+idx)}</span><span>${text}</span>`;
     div.addEventListener('click', () => selectChoice(idx));
     choicesEl.appendChild(div);
   });
 
-  document.getElementById('feedbackBox').innerHTML = '';
-  document.getElementById('nextBtn').disabled = true;
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  prevBtn.disabled = current === 0;
+  nextBtn.disabled = userAnswers[current] === null;
+  nextBtn.textContent = isLast ? '結果を見る ▶' : '次へ ▶';
 }
 
 function selectChoice(idx){
-  const data = QUESTIONS[current];
+  userAnswers[current] = idx;
   const choiceEls = document.querySelectorAll('#choices .choice');
-  if (choiceEls[0].classList.contains('locked')) return; // already answered
-
-  const isCorrect = idx === data.correct;
-  choiceEls.forEach((el, i) => {
-    el.classList.add('locked');
-    if (i === data.correct) el.classList.add('correct');
-    if (i === idx && !isCorrect) el.classList.add('wrong');
-    if (i === idx) el.classList.add('selected');
-  });
-
-  const fb = document.getElementById('feedbackBox');
-  if (isCorrect){
-    score++;
-    fb.innerHTML = `<div class="feedback ok">✓ 正解！</div><div class="explain">${data.explain}</div>`;
-  } else {
-    fb.innerHTML = `<div class="feedback ng">✗ 不正解…</div><div class="explain">正解は「${data.choices[data.correct]}」。${data.explain}</div>`;
-  }
-
-  answers.push({
-    q: data.q,
-    picked: data.choices[idx],
-    correctText: data.choices[data.correct],
-    isCorrect,
-    explain: data.explain
-  });
-
-  document.getElementById('scoreLive').textContent = `正解 ${score}`;
+  choiceEls.forEach((el, i) => el.classList.toggle('selected', i === idx));
+  updateAnsweredMeta();
   document.getElementById('nextBtn').disabled = false;
 }
 
-function nextQuestion(){
-  current++;
-  if (current >= QUESTIONS.length){
-    showResult();
+function goToPrevQuestion(){
+  if (current === 0) return;
+  current--;
+  renderQuestion();
+}
+
+function goToNextQuestion(){
+  const questions = activeSet.questions;
+  if (current === questions.length - 1){
+    finishQuiz();
   } else {
+    current++;
     renderQuestion();
   }
 }
 
+function finishQuiz(){
+  const questions = activeSet.questions;
+  score = 0;
+  answers.length = 0;
+  questions.forEach((data, i) => {
+    const idx = userAnswers[i];
+    const isCorrect = idx === data.correct;
+    if (isCorrect) score++;
+    answers.push({
+      q: data.q,
+      picked: idx === null ? '（未回答）' : data.choices[idx],
+      correctText: data.choices[data.correct],
+      isCorrect,
+      explain: data.explain
+    });
+  });
+  showResult();
+}
+
 function getRank(score){
-  if (score === 10) return {
+  if (score === activeSet.questions.length) return {
     title: "称号：フォースの申し子",
     desc: "全問正解。まるでミディ=クロリアン値が振り切れているかのような記憶力です。オビ=ワンもきっと誇らしげにうなずくでしょう。"
   };
   if (score >= 8) return {
     title: "称号：ジェダイ・パダワン",
-    desc: "ほぼ完璧な理解度。エピソード1の細部までしっかり記憶に刻まれています。"
+    desc: "ほぼ完璧な理解度。物語の細部までしっかり記憶に刻まれています。"
   };
   if (score >= 6) return {
     title: "称号：ナブー王室護衛官",
@@ -495,20 +879,23 @@ function getRank(score){
   };
   if (score >= 4) return {
     title: "称号：見習いパイロット",
-    desc: "断片的には覚えているものの、まだ整理が必要なようです。もう一度エピソード1を見返してみましょう。"
+    desc: "断片的には覚えているものの、まだ整理が必要なようです。もう一度見返してみましょう。"
   };
   return {
     title: "称号：タトゥイーンの砂の民",
-    desc: "記憶はまだ砂に埋もれているようです。ぜひもう一度エピソード1を鑑賞してから再挑戦してください。"
+    desc: "記憶はまだ砂に埋もれているようです。ぜひもう一度鑑賞してから再挑戦してください。"
   };
 }
 
 function showResult(){
   screenQuiz.classList.add('hidden');
   screenResult.classList.remove('hidden');
+  setState('result');
   document.getElementById('progressFill').style.width = '100%';
 
+  document.getElementById('resultSetLabel').textContent = `${activeSet.ep} ・ ${activeSet.name}`;
   document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalTotal').textContent = activeSet.questions.length;
   const rank = getRank(score);
   document.getElementById('rankBadge').textContent = rank.title;
   document.getElementById('rankDesc').textContent = rank.desc;
@@ -517,19 +904,22 @@ function showResult(){
   list.innerHTML = '';
   answers.forEach((a, i) => {
     const div = document.createElement('div');
-    div.className = 'review-item';
+    div.className = 'rev';
     div.innerHTML = `
-      <div class="review-head">
-        <span class="review-icon ${a.isCorrect ? 'ok' : 'ng'}">${a.isCorrect ? '✓' : '✗'}</span>
-        <span>Q${i+1}. ${a.q}</span>
+      <div class="rev-q">
+        <span class="rev-ic ${a.isCorrect ? 'ok' : 'ng'}">${a.isCorrect ? '✓' : '✕'}</span>
+        <span>${String(i+1).padStart(2,'0')}. ${a.q}</span>
       </div>
-      <div class="review-ans">
-        あなたの回答：<b>${a.picked}</b>${a.isCorrect ? '' : `　／　正解：<b>${a.correctText}</b>`}
+      <div class="rev-body">
+        <div class="rev-ans">
+          回答 <b class="${a.isCorrect ? 'ok' : 'ng'}">${a.picked}</b>${a.isCorrect ? '' : ` ／ 正解 <b class="ok">${a.correctText}</b>`}
+        </div>
+        <div class="rev-ex">${a.explain}</div>
       </div>
-      <div class="review-explain">${a.explain}</div>
     `;
     list.appendChild(div);
   });
+  document.getElementById('reviewList').scrollTop = 0;
 }
 
 function resetQuiz(){
@@ -538,10 +928,7 @@ function resetQuiz(){
   answers.length = 0;
   screenResult.classList.add('hidden');
   screenIntro.classList.remove('hidden');
-  const crawl = document.getElementById('crawlInner');
-  crawl.style.animation = 'none';
-  void crawl.offsetWidth;
-  crawl.style.animation = '';
+  setState('intro');
 }
 </script>
 </body>
