@@ -14,6 +14,13 @@
     --cyan:#7dd8ff;
     --red:#ff5f5f;
     --green:#4ce09a;
+    /* lightsaber blades: a white-hot core wrapped in a saturated bloom */
+    --saber-blue:#5cc8ff;
+    --saber-blue-core:#eaf8ff;
+    --saber-blue-glow:rgba(92,200,255,.55);
+    --saber-red:#ff4d4d;
+    --saber-red-core:#ffe8e8;
+    --saber-red-glow:rgba(255,77,77,.55);
     --bg:#000004;
     --ink:#e9edf8;
     --ink-mid:#9fabc7;
@@ -55,9 +62,26 @@
   .app{
     position:relative;z-index:2;
     height:100vh;height:100dvh;
-    display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+    display:grid;
+    /* the column must not size to max-content, or nowrap bar text widens the whole page */
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr) auto;
   }
   /* pin each region to its own row: hiding a bar must not let .main slide up into the auto track */
+  /* the toggle floats above every screen, so the topbar keeps its corner clear */
+  .sound-toggle{
+    position:fixed;z-index:20;
+    top:calc((var(--bar) - 32px) / 2);right:var(--gutter);
+    width:32px;height:32px;padding:0;border:none;background:none;
+    display:grid;place-items:center;color:var(--ink-dim);cursor:pointer;
+    transition:color .25s var(--ease),opacity .25s var(--ease);
+  }
+  .sound-toggle:hover{color:var(--cyan);}
+  .sound-toggle .slash{display:none;}
+  .sound-toggle.muted{opacity:.55;}
+  .sound-toggle.muted .wave{display:none;}
+  .sound-toggle.muted .slash{display:block;}
+
   .topbar{grid-row:1;}
   .main{grid-row:2;}
   .bottombar{grid-row:3;}
@@ -70,7 +94,8 @@
     background:linear-gradient(180deg,rgba(5,12,22,.66),rgba(5,12,22,.14));
     -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   }
-  .topbar{border-bottom:1px solid var(--line);z-index:5;}
+  /* declared after .bar so it wins the padding shorthand; keeps the sound toggle's corner clear */
+  .topbar{border-bottom:1px solid var(--line);z-index:5;padding-right:calc(var(--gutter) + 42px);}
   .bottombar{border-top:1px solid var(--line);background:linear-gradient(0deg,rgba(5,12,22,.66),rgba(5,12,22,.14));}
 
   /* hairline progress pinned to the very top edge of the viewport */
@@ -82,12 +107,26 @@
     transition:width .45s var(--ease);
   }
 
+  /* doubles as the way out of a quiz: clicking the wordmark returns to the episode list */
   .mark{
+    position:relative;border:none;padding:0;font:inherit;cursor:pointer;
     font-size:clamp(11px,1.05vw,13px);font-weight:900;
     letter-spacing:.26em;text-transform:uppercase;white-space:nowrap;
     background:linear-gradient(180deg,#fff6c9,var(--gold) 55%,var(--gold-dim));
     -webkit-background-clip:text;background-clip:text;color:transparent;
+    transition:filter .3s var(--ease);
   }
+  .mark::after{
+    content:"";position:absolute;left:0;right:0;bottom:-5px;height:1px;
+    background:var(--gold-dim);
+    transform:scaleX(0);transform-origin:100% 50%;
+    transition:transform .35s var(--ease);
+  }
+  .mark:hover{filter:brightness(1.3);}
+  .mark:hover::after,.mark:focus-visible::after{transform:scaleX(1);transform-origin:0 50%;}
+  .mark:focus-visible{outline:none;}
+  /* the wordmark is clipped to a gradient, so the icon needs its own explicit stroke */
+  .mark-icon{display:none;width:17px;height:17px;stroke:var(--gold-dim);}
   .meta{
     margin-left:auto;display:flex;align-items:center;gap:clamp(8px,1.4vw,16px);
     font-size:clamp(10px,.95vw,11.5px);letter-spacing:.16em;text-transform:uppercase;
@@ -95,6 +134,7 @@
   }
   .meta .sep{width:1px;height:11px;background:var(--line-mid);}
   .meta .em{color:var(--cyan);}
+  .meta .lv{color:var(--ink);font-weight:700;}
   .meta .pos{color:var(--gold);font-weight:800;letter-spacing:.1em;}
 
   /* ---------- screens fill the main row exactly ---------- */
@@ -107,7 +147,9 @@
   body[data-state="crawl"] .topbar,
   body[data-state="crawl"] .bottombar,
   body[data-state="intro"] .topbar,
-  body[data-state="intro"] .bottombar{display:none;}
+  body[data-state="intro"] .bottombar,
+  body[data-state="level"] .topbar,
+  body[data-state="level"] .bottombar{display:none;}
   body[data-state="quiz"] .bar-result,
   body[data-state="result"] .bar-quiz{display:none;}
   /* the opening crawl stays pure starfield, as in the films */
@@ -130,32 +172,41 @@
   .crawl-inner h3{font-size:1.18em;margin:0 0 1em;letter-spacing:.06em;}
   .crawl-inner p{margin:0 0 1.1em;}
   @keyframes crawlmove{from{transform:translateY(85%);}to{transform:translateY(-172%);}}
-  .skip{
-    position:absolute;bottom:clamp(14px,3vh,28px);right:var(--gutter);z-index:4;
-    background:rgba(10,24,38,.4);color:var(--gold);
-    border:1px solid rgba(245,209,66,.32);border-radius:999px;
-    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-    padding:8px 18px;font:inherit;font-size:11px;font-weight:700;
-    letter-spacing:.2em;text-transform:uppercase;cursor:pointer;
-    transition:background .25s var(--ease),border-color .25s var(--ease),transform .25s var(--ease);
-  }
-  .skip:hover{background:rgba(245,209,66,.14);border-color:rgba(245,209,66,.6);transform:translateY(-1px);}
 
   /* ---------- 2. select screen : full-width hero + episode grid ---------- */
   /* hero band on top, episode columns filling every remaining pixel below */
-  #screen-intro{display:grid;grid-template-rows:auto minmax(0,1fr);}
+  #screen-intro,#screen-level{display:grid;grid-template-rows:auto minmax(0,1fr);}
+  .level-ep{
+    font-size:clamp(10px,1.1vw,13px);font-weight:800;letter-spacing:.32em;
+    text-transform:uppercase;color:var(--cyan);
+  }
+  .level-title{
+    margin:clamp(8px,1.4vh,14px) 0 0;font-weight:900;
+    font-size:clamp(24px,4.2vw,48px);letter-spacing:.02em;line-height:1.1;
+    background:linear-gradient(180deg,#fff7cf 0%,var(--gold) 48%,var(--gold-dim) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 26px rgba(245,209,66,.2));
+  }
   .hero{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;padding:clamp(22px,5vh,58px) var(--gutter);
   }
+  .hero-title{margin:0;}
   .hero-logo{
-    margin:0;font-weight:900;
-    font-size:clamp(26px,5.4vw,60px);letter-spacing:.06em;line-height:1.04;
-    text-transform:uppercase;
-    background:linear-gradient(180deg,#fff7cf 0%,var(--gold) 46%,var(--gold-dim) 100%);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(0 0 30px rgba(245,209,66,.24));
+    display:block;width:min(560px,80vw);height:auto;margin:0 auto;
+    /* the same backward tilt as the opening crawl */
+    transform:perspective(620px) rotateX(11deg);
+    filter:drop-shadow(0 6px 26px rgba(245,209,66,.26));
   }
+  /* Arial Black / Impact give the heavy condensed caps the mark relies on */
+  .logo-line,.logo-sub{
+    font-family:"Arial Black","Helvetica Neue",Impact,sans-serif;
+    font-weight:900;text-anchor:middle;
+    paint-order:stroke fill;
+    stroke:#120d00;stroke-linejoin:round;
+  }
+  .logo-line{font-size:96px;fill:url(#logoGold);stroke-width:7px;}
+  .logo-sub{font-size:34px;fill:url(#logoGoldSub);stroke-width:4px;}
   .hero-sub{
     margin:clamp(10px,1.6vh,16px) 0 0;
     font-size:clamp(9.5px,1vw,11.5px);letter-spacing:.34em;text-transform:uppercase;
@@ -165,15 +216,16 @@
     width:min(420px,60vw);height:1px;margin:clamp(14px,2vh,20px) auto;
     background:linear-gradient(90deg,transparent,var(--line-hi),transparent);
   }
-  .hero-note{
-    margin:0;max-width:56em;
-    font-size:clamp(10px,.95vw,11.5px);letter-spacing:.06em;line-height:1.9;color:var(--ink-dim);
-  }
+  /* fixed 3 columns keeps 6 episodes as a balanced 3x2 block instead of an orphaned 5+1 */
   .quiz-grid{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-auto-rows:minmax(0,1fr);
     border-top:1px solid var(--line);min-height:0;
   }
   .quiz-card{
+    --card-accent:var(--gold);
+    --card-wash:rgba(245,209,66,.16);
+    --card-wash-soft:rgba(245,209,66,.02);
     position:relative;overflow:hidden;min-width:0;
     display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;
     gap:7px;padding:clamp(20px,3vh,40px) var(--gutter);
@@ -181,15 +233,19 @@
     font:inherit;color:var(--ink);text-align:left;cursor:pointer;
     transition:background-color .35s var(--ease);
   }
-  .quiz-card:first-child{border-left:none;}
+  /* difficulty tiers borrow the saber palette: blue for the gentlest, red for the hardest */
+  .quiz-card.lv-basic{--card-accent:var(--saber-blue);--card-wash:rgba(92,200,255,.16);--card-wash-soft:rgba(92,200,255,.02);}
+  .quiz-card.lv-hard{--card-accent:var(--saber-red);--card-wash:rgba(255,77,77,.16);--card-wash-soft:rgba(255,77,77,.02);}
+  .quiz-card:nth-child(3n+1){border-left:none;}
+  .quiz-card:nth-child(n+4){border-top:1px solid var(--line);}
   .quiz-card::after{
     content:"";position:absolute;inset:0;pointer-events:none;
-    background:linear-gradient(0deg,rgba(245,209,66,.16),rgba(245,209,66,.02) 45%,transparent 75%);
+    background:linear-gradient(0deg,var(--card-wash),var(--card-wash-soft) 45%,transparent 75%);
     opacity:0;transition:opacity .35s var(--ease);
   }
   .quiz-card::before{
     content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
-    background:linear-gradient(90deg,var(--gold),transparent);
+    background:linear-gradient(90deg,var(--card-accent),transparent);
     transform:scaleX(0);transform-origin:0 50%;
     transition:transform .4s var(--ease);
   }
@@ -206,13 +262,24 @@
     font-size:clamp(19px,2vw,30px);font-weight:800;color:#fff;
     letter-spacing:.01em;line-height:1.28;
   }
+  .quiz-card.lv-basic .quiz-ep,.quiz-card.lv-hard .quiz-ep{color:var(--card-accent);}
   .quiz-count{
     position:relative;z-index:1;margin-top:clamp(8px,1.4vh,14px);
-    display:flex;align-items:center;gap:8px;
-    font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--gold);
+    display:flex;align-items:center;gap:12px;
+    font-size:11px;font-weight:700;letter-spacing:.16em;
+    color:var(--ink-dim);transition:color .3s var(--ease);
   }
-  .quiz-count .arrow{transition:transform .35s var(--ease);}
-  .quiz-card:hover .quiz-count .arrow{transform:translateX(5px);}
+  .quiz-card:hover .quiz-count{color:var(--card-accent);}
+  /* hairline arrow that extends as the card is hovered */
+  .go{width:34px;height:10px;overflow:visible;flex:0 0 auto;}
+  .go line,.go polyline{
+    transform-box:view-box;
+    transition:transform .45s var(--ease);
+  }
+  .go .shaft{transform-origin:0 50%;transform:scaleX(.42);}
+  .go .head{transform:translateX(-15px);}
+  .quiz-card:hover .go .shaft{transform:scaleX(1);}
+  .quiz-card:hover .go .head{transform:translateX(0);}
 
   /* ---------- 3. quiz screen : split view, hairline divider, no boxes ---------- */
   #screen-quiz{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,1fr);}
@@ -238,44 +305,43 @@
     color:#fff;letter-spacing:.005em;
   }
 
-  .choices{display:flex;flex-direction:column;gap:clamp(7px,1.1vh,11px);width:100%;max-width:620px;}
+  /* choices are a hairline-ruled list, not boxes; the pick is marked by a saber blade */
+  .choices{display:flex;flex-direction:column;width:100%;max-width:620px;}
   .choice{
-    position:relative;overflow:hidden;
-    display:flex;align-items:center;gap:clamp(11px,1.2vw,16px);
-    padding:clamp(12px,1.9vh,18px) clamp(15px,1.5vw,20px);
-    border:1px solid var(--line);border-radius:13px;
-    background:var(--glass-soft);
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-    font-size:clamp(13.5px,1.05vw,16px);line-height:1.5;
+    position:relative;
+    display:flex;align-items:center;gap:clamp(13px,1.4vw,18px);
+    padding:clamp(13px,2vh,19px) 2px clamp(13px,2vh,19px) 0;
+    border-bottom:1px solid var(--line);
+    font-size:clamp(13.5px,1.05vw,16px);line-height:1.55;
     cursor:pointer;
-    transition:border-color .25s var(--ease),background-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);
+    transition:padding-left .3s var(--ease);
   }
-  .choice::before{
-    content:"";position:absolute;left:0;top:50%;translate:0 -50%;
-    width:2px;height:0;border-radius:0 2px 2px 0;
-    background:var(--line-hi);transition:height .28s var(--ease),background-color .28s var(--ease);
+  .choice:first-child{border-top:1px solid var(--line);}
+  .choice .wash{
+    position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(125,216,255,.085),transparent 72%);
+    opacity:0;transition:opacity .3s var(--ease);
+  }
+  .choice .blade{
+    position:absolute;left:0;top:17%;bottom:17%;width:2px;border-radius:2px;
+    background:linear-gradient(180deg,#fff8dc,var(--gold) 38%,var(--gold));
+    box-shadow:0 0 6px rgba(245,209,66,.6),0 0 16px rgba(245,209,66,.35);
+    transform:scaleY(0);transform-origin:50% 0;
+    transition:transform .3s var(--ease);
   }
   .choice .key{
-    flex:0 0 auto;width:28px;height:28px;border-radius:9px;
-    border:1px solid var(--line-mid);
-    display:grid;place-items:center;
-    font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--ink-mid);
-    transition:background .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease);
+    flex:0 0 auto;min-width:1.1em;
+    font-size:11.5px;font-weight:800;letter-spacing:.16em;color:var(--ink-dim);
+    transition:color .25s var(--ease);
   }
-  .choice:hover{border-color:var(--line-hi);background:rgba(125,216,255,.075);transform:translateX(3px);}
-  .choice:hover::before{height:44%;}
-  .choice:hover .key{color:var(--cyan);border-color:var(--line-hi);}
-  .choice.selected{
-    border-color:rgba(245,209,66,.55);
-    background:linear-gradient(90deg,rgba(245,209,66,.14),rgba(245,209,66,.035));
-    box-shadow:0 10px 30px rgba(245,209,66,.1);
-    transform:none;
-  }
-  .choice.selected::before{height:66%;background:var(--gold);}
-  .choice.selected .key{
-    background:linear-gradient(180deg,var(--gold-hi),var(--gold) 55%,var(--gold-dim));
-    border-color:transparent;color:#1b1500;
-  }
+  .choice .label{transition:color .25s var(--ease);}
+  .choice:hover{padding-left:clamp(11px,1.3vw,18px);}
+  .choice:hover .wash{opacity:1;}
+  .choice:hover .key{color:var(--cyan);}
+  .choice.selected{padding-left:clamp(13px,1.5vw,20px);}
+  .choice.selected .blade{transform:scaleY(1);}
+  .choice.selected .key{color:var(--gold);}
+  .choice.selected .label{color:#fff;font-weight:700;}
 
   /* ---------- 4. result screen : score / review split ---------- */
   #screen-result{display:grid;grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);}
@@ -297,10 +363,10 @@
     -webkit-background-clip:text;background-clip:text;color:transparent;}
   .res-caption{margin:6px 0 0;font-size:clamp(10px,.95vw,11.5px);letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);}
   .res-rank{
-    margin-top:clamp(14px,2.2vh,22px);padding:9px 20px;border-radius:999px;
-    border:1px solid rgba(245,209,66,.45);background:rgba(245,209,66,.08);
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-    color:var(--gold);font-size:clamp(11.5px,1.1vw,13.5px);font-weight:800;letter-spacing:.1em;
+    margin-top:clamp(14px,2.2vh,22px);padding-top:clamp(12px,1.8vh,18px);
+    border-top:1px solid var(--line-mid);
+    color:var(--gold);text-shadow:0 0 22px rgba(245,209,66,.3);
+    font-size:clamp(13px,1.35vw,17px);font-weight:800;letter-spacing:.12em;
   }
   .res-desc{margin:clamp(10px,1.8vh,16px) 0 0;max-width:34em;font-size:clamp(11.5px,1.05vw,13.5px);line-height:1.85;color:var(--ink-mid);}
 
@@ -308,43 +374,81 @@
     min-height:0;overflow-y:auto;border-left:1px solid var(--line);
     padding:clamp(16px,2.6vh,28px) var(--gutter);
   }
-  .rev{padding:clamp(12px,1.8vh,16px) 0;border-bottom:1px solid rgba(125,216,255,.09);}
+  .rev{
+    position:relative;
+    padding:clamp(12px,1.8vh,16px) 0 clamp(12px,1.8vh,16px) clamp(17px,1.7vw,23px);
+    border-bottom:1px solid rgba(125,216,255,.09);
+    transition:background-color .3s var(--ease);
+  }
   .rev:last-child{border-bottom:none;}
+  .rev.ok{--blade:var(--saber-blue);--core:var(--saber-blue-core);--glow:var(--saber-blue-glow);}
+  .rev.ng{--blade:var(--saber-red);--core:var(--saber-red-core);--glow:var(--saber-red-glow);}
+
+  /* the blade itself: ignites downward from the emitter, staggered per row */
+  .rev::before{
+    content:"";position:absolute;left:0;
+    top:clamp(10px,1.5vh,14px);bottom:clamp(10px,1.5vh,14px);
+    width:3px;border-radius:3px;
+    background:linear-gradient(180deg,var(--core),var(--blade) 38%,var(--blade));
+    box-shadow:0 0 5px var(--glow),0 0 13px var(--glow),0 0 28px var(--glow);
+    transform-origin:50% 0;
+    animation:ignite .5s var(--ease) backwards;
+    animation-delay:calc(var(--i,0) * 45ms);
+    transition:width .3s var(--ease),box-shadow .3s var(--ease);
+  }
+  @keyframes ignite{from{transform:scaleY(0);opacity:.15;}to{transform:scaleY(1);opacity:1;}}
+  .rev:hover{background:linear-gradient(90deg,rgba(255,255,255,.045),transparent 42%);}
+  .rev:hover::before{width:4px;box-shadow:0 0 8px var(--glow),0 0 20px var(--glow),0 0 40px var(--glow);}
+
   .rev-q{display:flex;gap:11px;align-items:flex-start;font-size:clamp(12.5px,1vw,14px);font-weight:700;color:#fff;line-height:1.6;}
-  .rev-ic{flex:0 0 auto;width:18px;height:18px;margin-top:1px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:900;}
-  .rev-ic.ok{color:var(--green);border:1px solid rgba(76,224,154,.45);background:rgba(76,224,154,.1);}
-  .rev-ic.ng{color:var(--red);border:1px solid rgba(255,95,95,.42);background:rgba(255,95,95,.1);}
-  .rev-body{margin:7px 0 0 29px;}
+  .rev-ic{
+    flex:0 0 auto;width:17px;height:17px;margin-top:2px;border-radius:50%;
+    display:grid;place-items:center;font-size:9.5px;font-weight:900;
+    color:var(--core);background:var(--blade);
+    box-shadow:0 0 7px var(--glow),0 0 15px var(--glow);
+  }
+  .rev-body{margin:7px 0 0 28px;}
   .rev-ans{font-size:clamp(11px,1vw,12.5px);line-height:1.7;color:var(--ink-mid);}
   .rev-ans b{color:var(--ink);font-weight:700;}
-  .rev-ans .ok{color:var(--green);}
-  .rev-ans .ng{color:var(--red);}
+  .rev-ans .ok{color:var(--saber-blue);text-shadow:0 0 12px var(--saber-blue-glow);}
+  .rev-ans .ng{color:var(--saber-red);text-shadow:0 0 12px var(--saber-red-glow);}
   .rev-ex{margin-top:4px;font-size:clamp(10.5px,.95vw,12px);line-height:1.75;color:var(--ink-dim);}
 
-  /* ---------- controls ---------- */
+  /* ---------- controls: type-led, no chrome. a hairline draws in on hover ---------- */
   .btn{
-    font:inherit;cursor:pointer;user-select:none;white-space:nowrap;
-    padding:clamp(9px,1.4vh,12px) clamp(18px,2vw,28px);border-radius:11px;
-    font-size:clamp(12px,1.05vw,14px);font-weight:800;letter-spacing:.1em;
-    border:1px solid transparent;
-    transition:transform .25s var(--ease),box-shadow .25s var(--ease),background .25s var(--ease),border-color .25s var(--ease);
+    position:relative;
+    border:none;background:none;padding:10px 1px;
+    font:inherit;font-size:clamp(11.5px,1vw,13.5px);font-weight:700;letter-spacing:.2em;
+    display:inline-flex;align-items:center;gap:11px;white-space:nowrap;
+    color:var(--ink-mid);cursor:pointer;user-select:none;
+    transition:color .3s var(--ease);
   }
-  .btn-primary{
-    background:linear-gradient(180deg,var(--gold-hi) 0%,var(--gold) 38%,var(--gold-dim) 100%);
-    color:#1b1500;box-shadow:0 8px 26px rgba(245,209,66,.26),inset 0 1px 0 rgba(255,255,255,.45);
+  .btn::after{
+    content:"";position:absolute;left:0;right:0;bottom:3px;height:1px;
+    background:currentColor;opacity:.55;
+    transform:scaleX(0);transform-origin:100% 50%;
+    transition:transform .35s var(--ease);
   }
-  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(245,209,66,.4),inset 0 1px 0 rgba(255,255,255,.55);}
-  .btn-ghost{
-    background:rgba(125,216,255,.05);color:var(--cyan);border-color:var(--line-mid);
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  }
-  .btn-ghost:hover{background:rgba(125,216,255,.12);border-color:var(--line-hi);transform:translateY(-2px);}
-  .btn:active{transform:translateY(0);}
-  .btn:disabled{opacity:.26;cursor:not-allowed;transform:none;box-shadow:none;}
-  .bar-quiz,.bar-result{display:flex;align-items:center;gap:clamp(10px,2vw,20px);width:100%;}
-  .bar-note{
-    flex:1 1 auto;text-align:center;min-width:0;
-    font-size:clamp(9.5px,.9vw,11px);letter-spacing:.1em;color:var(--ink-dim);
+  .btn:hover::after,.btn:focus-visible::after{transform:scaleX(1);transform-origin:0 50%;}
+  .btn:focus-visible{outline:none;}
+  .btn .chev{width:7px;height:11px;flex:0 0 auto;transition:transform .3s var(--ease);}
+  .btn:hover .chev{transform:translateX(4px);}
+  .btn:hover .chev.back{transform:translateX(-4px);}
+
+  .btn-primary{color:var(--gold);text-shadow:0 0 20px rgba(245,209,66,.35);}
+  .btn-primary:hover{color:var(--gold-hi);}
+  .btn-ghost{color:var(--ink-dim);}
+  .btn-ghost:hover{color:var(--cyan);}
+  .btn:disabled{opacity:.22;cursor:not-allowed;text-shadow:none;}
+  .btn:disabled::after{display:none;}
+  .btn:disabled .chev{transform:none;}
+
+  /* these must follow .btn or its position:relative wins and knocks them out of place */
+  .skip{position:absolute;bottom:clamp(14px,3vh,28px);right:var(--gutter);z-index:4;}
+  .back-btn{position:absolute;top:clamp(14px,2.6vh,26px);left:var(--gutter);z-index:4;}
+  .bar-quiz,.bar-result{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:clamp(10px,2vw,20px);width:100%;
   }
 
   /* ---------- scrollbars ---------- */
@@ -353,9 +457,22 @@
   .pane::-webkit-scrollbar-track,.res-review::-webkit-scrollbar-track{background:transparent;}
 
   /* ---------- narrow / short viewports : stack the split views ---------- */
+  /* tablet: episodes drop to 2 columns, the 3 difficulty tiers stay side by side */
+  @media (max-width:1100px) and (min-width:861px){
+    #quizList{grid-template-columns:repeat(2,minmax(0,1fr));}
+    #quizList .quiz-card:nth-child(n){border-left:1px solid var(--line);border-top:none;}
+    #quizList .quiz-card:nth-child(2n+1){border-left:none;}
+    #quizList .quiz-card:nth-child(n+3){border-top:1px solid var(--line);}
+  }
+
   @media (max-width:860px){
     :root{--gutter:clamp(16px,5vw,26px);}
-    #screen-intro{grid-template-rows:auto auto;align-content:center;overflow-y:auto;}
+    .quiz-grid{grid-template-columns:1fr;grid-auto-rows:auto;}
+    #quizList .quiz-card:nth-child(n),#levelList .quiz-card:nth-child(n){
+      border-left:none;border-top:1px solid var(--line);
+    }
+    #screen-intro,#screen-level{grid-template-rows:auto auto;align-content:center;overflow-y:auto;}
+    .back-btn{position:static;align-self:flex-start;margin:0 var(--gutter) 14px;}
     .quiz-grid{border-top:none;}
     .quiz-card{
       border-left:none;border-top:1px solid var(--line);
@@ -375,12 +492,14 @@
     .res-desc{display:none;}
     .res-review{border-left:none;border-top:1px solid var(--line);}
     /* the wordmark and the episode name are both nowrap; together they force the bar wider than the screen */
-    .topbar .mark{display:none;}
+    /* no room for the wordmark, but the way home has to survive: swap it for a house icon */
+    .mark{display:grid;place-items:center;flex:0 0 auto;}
+    .mark-text{display:none;}
+    .mark-icon{display:block;}
+    .mark::after{display:none;}
     .meta{margin-left:0;width:100%;min-width:0;justify-content:space-between;}
     .meta .em{min-width:0;overflow:hidden;text-overflow:ellipsis;}
     .meta .answered{display:none;}
-    .bar-note{display:none;}
-    .bar-quiz,.bar-result{justify-content:space-between;}
   }
   @media (max-height:560px){
     .q-index{font-size:clamp(40px,7vh,64px);}
@@ -400,11 +519,28 @@
 
 <div class="app">
 
+  <button class="sound-toggle" id="soundToggle" aria-label="効果音の切り替え">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9.3v5.4h3.3L12 18.6V5.4L7.3 9.3H4z"/>
+      <path class="wave" d="M15.3 9.4a3.8 3.8 0 0 1 0 5.2"/>
+      <path class="wave" d="M17.9 6.8a7.4 7.4 0 0 1 0 10.4"/>
+      <path class="slash" d="M3.5 20.5 20.5 3.5"/>
+    </svg>
+  </button>
+
   <header class="bar topbar">
     <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="mark">Star Wars Questions</div>
+    <button class="mark" id="homeBtn" title="回答をやめてエピソード選択に戻る" aria-label="エピソード選択に戻る">
+      <span class="mark-text">Star Wars Questions</span>
+      <svg class="mark-icon" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2.8 8.4 10 2.6l7.2 5.8"/>
+        <path d="M4.9 8V17h10.2V8"/>
+      </svg>
+    </button>
     <div class="meta">
       <span class="em" id="metaSet">Episode I</span>
+      <span class="sep"></span>
+      <span class="lv" id="metaLevel">初級</span>
       <span class="sep"></span>
       <span class="pos" id="metaPos">01 / 10</span>
       <span class="sep"></span>
@@ -439,18 +575,45 @@
           </p>
         </div>
       </div>
-      <button class="skip" id="skipCrawl">スキップ</button>
+      <button class="btn btn-ghost skip" id="skipCrawl">スキップ<svg class="chev" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.6,1.4 6.2,6 1.6,10.6"/></svg></button>
     </section>
 
     <!-- 2. EPISODE SELECT -->
     <section class="screen hidden" id="screen-intro">
       <div class="hero">
-        <h1 class="hero-logo">Star Wars Questions</h1>
+        <h1 class="hero-title">
+          <svg class="hero-logo" viewBox="0 0 560 152" role="img" aria-label="STAR WARS QUESTIONS">
+            <defs>
+              <linearGradient id="logoGold" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fffbe6"/>
+                <stop offset="16%" stop-color="#ffeea0"/>
+                <stop offset="48%" stop-color="#f5d142"/>
+                <stop offset="100%" stop-color="#7d6107"/>
+              </linearGradient>
+              <linearGradient id="logoGoldSub" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f7dd7c"/>
+                <stop offset="100%" stop-color="#9a7a0d"/>
+              </linearGradient>
+            </defs>
+            <text class="logo-line" x="280" y="92" textLength="524" lengthAdjust="spacingAndGlyphs">STAR WARS</text>
+            <text class="logo-sub" x="280" y="138" textLength="524" lengthAdjust="spacingAndGlyphs">QUESTIONS</text>
+          </svg>
+        </h1>
         <p class="hero-sub">Test your memory, episode by episode</p>
         <div class="hero-rule"></div>
-        <p class="hero-note">挑戦するエピソードを選択　／　全10問・4択　／　全問回答後にまとめて採点し、称号ランクと全問レビューを表示</p>
       </div>
       <div class="quiz-grid" id="quizList"></div>
+    </section>
+
+    <!-- 2b. DIFFICULTY SELECT -->
+    <section class="screen hidden" id="screen-level">
+      <div class="hero">
+        <div class="level-ep" id="levelEp"></div>
+        <h1 class="level-title" id="levelName"></h1>
+        <div class="hero-rule"></div>
+      </div>
+      <div class="quiz-grid" id="levelList"></div>
+      <button class="btn btn-ghost back-btn" id="backToEpisodes"><svg class="chev back" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6.4,1.4 1.8,6 6.4,10.6"/></svg>エピソード選択</button>
     </section>
 
     <!-- 3. QUIZ -->
@@ -482,13 +645,11 @@
 
   <footer class="bar bottombar">
     <div class="bar-quiz">
-      <button class="btn btn-ghost" id="prevBtn" disabled>◀ 前へ</button>
-      <span class="bar-note">採点は全問回答後にまとめて行われる ／ 「前へ」で選び直せる</span>
-      <button class="btn btn-primary" id="nextBtn" disabled>次へ ▶</button>
+      <button class="btn btn-ghost" id="prevBtn" disabled><svg class="chev back" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6.4,1.4 1.8,6 6.4,10.6"/></svg>前へ</button>
+      <button class="btn btn-primary" id="nextBtn" disabled>次へ<svg class="chev" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.6,1.4 6.2,6 1.6,10.6"/></svg></button>
     </div>
     <div class="bar-result">
-      <button class="btn btn-ghost" id="retryBtn">◀ エピソード選択へ</button>
-      <span class="bar-note">この銀河は、遠く、遠く離れた場所にある… ／ ファンメイド・非公式クイズ</span>
+      <button class="btn btn-ghost" id="retryBtn"><svg class="chev back" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6.4,1.4 1.8,6 6.4,10.6"/></svg>エピソード選択へ</button>
     </div>
   </footer>
 
@@ -519,212 +680,1645 @@ const QUIZ_SETS = [
     id: 'ep1',
     ep: 'EPISODE I',
     name: 'ファントム・メナス',
-    questions: [
-  {
-    q: "物語の冒頭、惑星ナブーを軍事封鎖し、後に侵略する勢力はどれ？",
-    choices: ["通商連合(トレード・フェデレーション)", "銀河共和国元老院", "ハット族", "ジャワ族"],
-    correct: 0,
-    explain: "通商連合がナブーへの課税に抗議して貿易航路を封鎖し、のちに地上侵略まで実行しました。"
-  },
-  {
-    q: "封鎖の交渉のため通商連合の司令船に送り込まれた2人のジェダイは、クワイ=ガン・ジンと誰？",
-    choices: ["メイス・ウィンドウ", "ヨーダ", "オビ=ワン・ケノービ", "ダース・モール"],
-    correct: 2,
-    explain: "クワイ=ガン・ジンとその弟子オビ=ワン・ケノービが交渉役として送られ、そこから物語が動き出します。"
-  },
-  {
-    q: "逃亡中の2人のジェダイとナブーの女王一行を助けた、水中でも生活できる原住民の種族は？",
-    choices: ["ウーキー族", "グンガン族", "トワイレック族", "イウォーク族"],
-    correct: 1,
-    explain: "グンガン族のジャー・ジャー・ビンクスが一行を水中都市オトゥー・ガンガに案内し、旅を共にします。"
-  },
-  {
-    q: "燃料調達のため一行がたどり着いた、少年アナキン・スカイウォーカーが暮らしていた砂の惑星は？",
-    choices: ["タトゥイーン", "ナブー", "コルサント", "ジオノーシス"],
-    correct: 0,
-    explain: "タトゥイーンは奴隷商人ワトーの店があり、アナキンと母シミがそこで暮らしていました。"
-  },
-  {
-    q: "アナキンが自らの手で組み立てたと語る、劇中に登場するプロトコル・ドロイドは？",
-    choices: ["R2-D2", "C-3PO", "BB-8", "IG-11"],
-    correct: 1,
-    explain: "まだ骨組みの状態のC-3POを、少年アナキンが自作していたという設定が描かれています。"
-  },
-  {
-    q: "アナキンが出場し、勝利することで一行の宇宙船の部品代を手に入れるレースは？",
-    choices: ["スピーダーバイク・チェイス", "ポッドレース", "宇宙艦隊戦", "アリーナ格闘"],
-    correct: 1,
-    explain: "アナキンは危険なポッドレースに人間として初めて優勝し、賞金と自由を手にします。"
-  },
-  {
-    q: "ナブーの女王として登場する人物は誰？",
-    choices: ["レイア・オーガナ", "パドメ・アミダラ", "モン・モスマ", "ジンタ・オク"],
-    correct: 1,
-    explain: "パドメ・アミダラ女王が、身分を隠しながら自国を守るために行動します。"
-  },
-  {
-    q: "クワイ=ガン・ジンと対決する、赤黒い顔と両刃のライトセーバーが特徴のシス卿は？",
-    choices: ["ダース・ベイダー", "ダース・シディアス", "ダース・モール", "カウント・ドゥークー"],
-    correct: 2,
-    explain: "ダース・モールは両刃のライトセーバーを操る戦闘要員として、要所でジェダイと切り結びます。"
-  },
-  {
-    q: "アナキンの潜在的な「フォースの強さ」を数値として測るために劇中で語られる架空の存在は？",
-    choices: ["カイバー・クリスタル", "ミディ=クロリアン", "ホロクロン", "コアクシウム"],
-    correct: 1,
-    explain: "クワイ=ガン・ジンはアナキンの血液検査でミディ=クロリアン値が異常に高いことを発見します。"
-  },
-  {
-    q: "物語の終盤、ナブー上空の戦いとほぼ同時に地上で繰り広げられる戦いの組み合わせとして正しいものは？",
-    choices: [
-      "グンガン族の地上軍 対 通商連合のドロイド軍",
-      "共和国艦隊 対 通商連合艦隊のみ",
-      "ジェダイたち 対 賞金稼ぎの軍勢",
-      "ナブー王室親衛隊 対 ジャワ族"
-    ],
-    correct: 0,
-    explain: "グンガン族の兵士たちが囮となって通商連合のドロイド軍と地上戦を繰り広げ、その間に女王たちが指揮官船を制圧しに向かいます。"
-  }
-    ]
+    levels: {
+      basic: [
+      {
+        q: "物語の冒頭、惑星ナブーを軍事封鎖し、後に侵略する勢力はどれ？",
+        choices: ["通商連合(トレード・フェデレーション)", "銀河共和国元老院", "ハット族", "ジャワ族"],
+        correct: 0,
+        explain: "通商連合がナブーへの課税に抗議して貿易航路を封鎖し、のちに地上侵略まで実行しました。"
+      },
+      {
+        q: "封鎖の交渉のため通商連合の司令船に送り込まれた2人のジェダイは、クワイ=ガン・ジンと誰？",
+        choices: ["メイス・ウィンドウ", "ヨーダ", "オビ=ワン・ケノービ", "ダース・モール"],
+        correct: 2,
+        explain: "クワイ=ガン・ジンとその弟子オビ=ワン・ケノービが交渉役として送られ、そこから物語が動き出します。"
+      },
+      {
+        q: "逃亡中の2人のジェダイとナブーの女王一行を助けた、水中でも生活できる原住民の種族は？",
+        choices: ["ウーキー族", "グンガン族", "トワイレック族", "イウォーク族"],
+        correct: 1,
+        explain: "グンガン族のジャー・ジャー・ビンクスが一行を水中都市オトゥー・ガンガに案内し、旅を共にします。"
+      },
+      {
+        q: "燃料調達のため一行がたどり着いた、少年アナキン・スカイウォーカーが暮らしていた砂の惑星は？",
+        choices: ["タトゥイーン", "ナブー", "コルサント", "ジオノーシス"],
+        correct: 0,
+        explain: "タトゥイーンは奴隷商人ワトーの店があり、アナキンと母シミがそこで暮らしていました。"
+      },
+      {
+        q: "アナキンが自らの手で組み立てたと語る、劇中に登場するプロトコル・ドロイドは？",
+        choices: ["R2-D2", "C-3PO", "BB-8", "IG-11"],
+        correct: 1,
+        explain: "まだ骨組みの状態のC-3POを、少年アナキンが自作していたという設定が描かれています。"
+      },
+      {
+        q: "アナキンが出場し、勝利することで一行の宇宙船の部品代を手に入れるレースは？",
+        choices: ["スピーダーバイク・チェイス", "ポッドレース", "宇宙艦隊戦", "アリーナ格闘"],
+        correct: 1,
+        explain: "アナキンは危険なポッドレースに人間として初めて優勝し、賞金と自由を手にします。"
+      },
+      {
+        q: "ナブーの女王として登場する人物は誰？",
+        choices: ["レイア・オーガナ", "パドメ・アミダラ", "モン・モスマ", "ジンタ・オク"],
+        correct: 1,
+        explain: "パドメ・アミダラ女王が、身分を隠しながら自国を守るために行動します。"
+      },
+      {
+        q: "クワイ=ガン・ジンと対決する、赤黒い顔と両刃のライトセーバーが特徴のシス卿は？",
+        choices: ["ダース・ベイダー", "ダース・シディアス", "ダース・モール", "カウント・ドゥークー"],
+        correct: 2,
+        explain: "ダース・モールは両刃のライトセーバーを操る戦闘要員として、要所でジェダイと切り結びます。"
+      },
+      {
+        q: "アナキンの潜在的な「フォースの強さ」を数値として測るために劇中で語られる架空の存在は？",
+        choices: ["カイバー・クリスタル", "ミディ=クロリアン", "ホロクロン", "コアクシウム"],
+        correct: 1,
+        explain: "クワイ=ガン・ジンはアナキンの血液検査でミディ=クロリアン値が異常に高いことを発見します。"
+      },
+      {
+        q: "物語の終盤、ナブー上空の戦いとほぼ同時に地上で繰り広げられる戦いの組み合わせとして正しいものは？",
+        choices: [
+          "グンガン族の地上軍 対 通商連合のドロイド軍",
+          "共和国艦隊 対 通商連合艦隊のみ",
+          "ジェダイたち 対 賞金稼ぎの軍勢",
+          "ナブー王室親衛隊 対 ジャワ族"
+        ],
+        correct: 0,
+        explain: "グンガン族の兵士たちが囮となって通商連合のドロイド軍と地上戦を繰り広げ、その間に女王たちが指揮官船を制圧しに向かいます。"
+      }
+      ],
+      mid: [
+        {
+          q: "ポッドレースでアナキンの最大のライバルとなる、反則を繰り返すダグ族のレーサーは？",
+          choices: ["セブルバ", "ワトー", "ジャー・ジャー", "グリード"],
+          correct: 0,
+          explain: "セブルバは他の機体を妨害して勝ち続けてきた常勝レーサーで、アナキンを執拗に狙います。"
+        },
+        {
+          q: "アナキンと母シミを奴隷として所有していた、羽の生えたジャンク屋の種族は？",
+          choices: ["ハット族", "トイダリアン族", "ロディアン族", "ドゥロス族"],
+          correct: 1,
+          explain: "トイダリアン族のワトーはフォースの精神操作が効かないため、クワイ=ガンは賭けで交渉するしかありませんでした。"
+        },
+        {
+          q: "ジェダイ評議会がアナキンの訓練を当初拒んだ理由として、ヨーダが指摘したものは？",
+          choices: ["年齢が幼すぎる", "彼の中に強い恐れがある", "ミディ=クロリアン値が低い", "奴隷の身分であるため"],
+          correct: 1,
+          explain: "ヨーダはアナキンの中に母を失う恐れを感じ取り、恐れが怒りと憎しみにつながると警告します。"
+        },
+        {
+          q: "クワイ=ガン・ジンが評議会の反対を押し切ってまで主張した、アナキンの位置づけとは？",
+          choices: ["選ばれし者", "最後のジェダイ", "シスの後継者", "共和国の救世主"],
+          correct: 0,
+          explain: "クワイ=ガンは、フォースにバランスをもたらす選ばれし者の予言がアナキンに当てはまると確信していました。"
+        },
+        {
+          q: "戦いの終盤、通商連合のドロイド兵が一斉に停止した原因は？",
+          choices: [
+            "グンガン族が電磁装置を使ったため",
+            "アナキンが制御船を内部から破壊したため",
+            "共和国艦隊が通信を妨害したため",
+            "ネート・ガンレイが降伏を命じたため"
+          ],
+          correct: 1,
+          explain: "アナキンが偶然乗り込んだスターファイターで制御船の反応炉を破壊し、ドロイド軍は一斉に機能を停止します。"
+        },
+        {
+          q: "ナブーの首都の名前は？",
+          choices: ["シード", "オトゥー・ガンガ", "モス・アイズリー", "コルサント"],
+          correct: 0,
+          explain: "首都シードは宮殿と格納庫を擁し、通商連合の侵攻と終盤の奪還戦の舞台になります。"
+        },
+        {
+          q: "グンガン族を率いる指導者（ボス）は？",
+          choices: ["ボス・ナス", "ジャー・ジャー・ビンクス", "キャプテン・タルパルス", "ボス・ロッグ"],
+          correct: 0,
+          explain: "ボス・ナスは当初ナブーの地上人と関わることを拒みますが、最終的に共闘を受け入れます。"
+        },
+        {
+          q: "終盤の地上戦で、ジャー・ジャー・ビンクスがグンガン軍で与えられた地位は？",
+          choices: ["斥候", "将軍", "衛生兵", "通信士"],
+          correct: 1,
+          explain: "ボス・ナスの勘違いによってジャー・ジャーは将軍に任命され、そのまま地上戦に加わることになります。"
+        },
+        {
+          q: "ダース・モールが仕えていたシスの師は？",
+          choices: ["ダース・ティラナス", "ダース・プレガス", "ダース・シディアス", "ダース・ベイン"],
+          correct: 2,
+          explain: "ダース・モールはダース・シディアスの弟子であり、師の命令で女王とジェダイを追跡します。"
+        },
+        {
+          q: "クワイ=ガン・ジンが息を引き取る際、オビ=ワンに託した願いは？",
+          choices: [
+            "アナキンを訓練すること",
+            "評議会に真実を伝えること",
+            "女王を守り抜くこと",
+            "シスの正体を暴くこと"
+          ],
+          correct: 0,
+          explain: "クワイ=ガンは最期に、アナキンこそ選ばれし者だと告げ、彼を訓練するようオビ=ワンに約束させます。"
+        }
+      ],
+      hard: [
+        {
+          q: "通商連合を率い、ナブー侵攻を指揮した副王（総督）の名前は？",
+          choices: ["ネート・ガンレイ", "ラッシュ・クロヴィス", "サン・ヒル", "ポグル・ザ・レッサー"],
+          correct: 0,
+          explain: "ネート・ガンレイは副王としてシディアスの指示を受け、侵攻と女王への条約署名の強要を進めます。"
+        },
+        {
+          q: "パルパティーンが最高議長へ上り詰める契機となった、パドメが元老院で起こした行動は？",
+          choices: [
+            "通商連合への制裁決議を提出した",
+            "ヴァローラム議長への不信任動議を提出した",
+            "ジェダイ評議会への調査要請を行った",
+            "ナブーの共和国離脱を宣言した"
+          ],
+          correct: 1,
+          explain: "パドメによる不信任動議でヴァローラムが失脚し、その後任選挙でパルパティーンが最高議長に就任します。"
+        },
+        {
+          q: "ワトーとの賭けで機体と少年の扱いを決める際に使われた道具は？",
+          choices: ["チャンス・キューブ", "ホロチェス盤", "サバック用のカード", "占星儀"],
+          correct: 0,
+          explain: "ワトーが投げたチャンス・キューブの目を、クワイ=ガンがフォースで操作して賭けを有利に運びます。"
+        },
+        {
+          q: "アナキンが優勝したポッドレースの正式名称は？",
+          choices: [
+            "ブーンタ・イヴ・クラシック",
+            "モス・エスパ・オープン",
+            "デューン・シー・ラリー",
+            "タトゥイーン・グランプリ"
+          ],
+          correct: 0,
+          explain: "ブーンタ・イヴ・クラシックはタトゥイーン最大のポッドレースで、アナキンは人間として初めて完走・優勝します。"
+        },
+        {
+          q: "ジェダイ評議会のメンバーで、細長く伸びた頭部が特徴のセリアン人は？",
+          choices: ["キ=アディ=ムンディ", "プロ・クーン", "イース・コス", "アディ・ガリア"],
+          correct: 0,
+          explain: "キ=アディ=ムンディは評議会でアナキンの資質をめぐる議論に加わり、シスの復活を否定する立場を取ります。"
+        },
+        {
+          q: "タトゥイーンでアナキンの親友として登場し、ポッドレースを応援する少年は？",
+          choices: ["キツター", "ワルド", "セベック", "グリード"],
+          correct: 0,
+          explain: "キツターはアナキンの奴隷仲間の友人で、レース当日も整備を手伝い声援を送ります。"
+        },
+        {
+          q: "オビ=ワンがダース・モールを倒した決め手となった行動は？",
+          choices: [
+            "フォースでクワイ=ガンのライトセーバーを引き寄せた",
+            "背後から不意打ちを仕掛けた",
+            "モールの武器を素手で奪った",
+            "炉心にモールを突き落とした"
+          ],
+          correct: 0,
+          explain: "劣勢から跳躍したオビ=ワンは、落ちていた師のライトセーバーをフォースで呼び寄せ、モールを一刀両断します。"
+        },
+        {
+          q: "ナブーの惑星核を通る航路で巨大生物に襲われた際、クワイ=ガンが口にした有名な台詞の趣旨は？",
+          choices: [
+            "常にもっと大きな魚がいる",
+            "フォースと共にあれ",
+            "恐れは闇へ通じる",
+            "これは罠だ"
+          ],
+          correct: 0,
+          explain: "潜水艇を襲った怪物がさらに巨大な生物に捕食される場面で、クワイ=ガンは常にもっと大きな魚がいると語ります。"
+        },
+        {
+          q: "パルパティーンが最高議長に選出される前に務めていた役職は？",
+          choices: [
+            "ナブー選出の元老院議員",
+            "通商連合の顧問",
+            "ジェダイ評議会の外部顧問",
+            "ナブーの前国王"
+          ],
+          correct: 0,
+          explain: "パルパティーンはナブー選出の元老院議員として、女王に助言する立場から議長の座を狙っていました。"
+        },
+        {
+          q: "アナキンのミディ=クロリアン値の高さを説明する際、クワイ=ガンが比較対象として挙げた人物は？",
+          choices: ["ヨーダ", "メイス・ウィンドウ", "ドゥークー", "ダース・モール"],
+          correct: 0,
+          explain: "クワイ=ガンは、ヨーダですらこれほど高い数値ではないと評議会に報告し、アナキンの異常さを強調します。"
+        }
+      ]
+    }
   },
   {
     id: 'ep2',
     ep: 'EPISODE II',
     name: 'クローンの攻撃',
-    questions: [
-  {
-    q: "物語冒頭、元老院出席のためコルサントに到着した上院議員パドメ・アミダラを狙う事件は？",
-    choices: ["輸送船の爆破", "毒ガスの散布", "元老院での銃撃", "食事への毒物混入"],
-    correct: 0,
-    explain: "パドメの身代わりを務めていた侍女(女官)コルデが、輸送船の爆破によって命を落とします。"
-  },
-  {
-    q: "パドメの護衛を命じられる2人のジェダイは、オビ=ワン・ケノービと誰？",
-    choices: ["メイス・ウィンドウ", "アナキン・スカイウォーカー", "キ=アディ=ムンディ", "プロ・クーン"],
-    correct: 1,
-    explain: "師オビ=ワンと、その弟子として成長したアナキンが揃って護衛を命じられます。"
-  },
-  {
-    q: "パドメの寝室に毒虫(コウフン)を送り込む探査ドロイドを操っていた、変身能力を持つ賞金稼ぎは？",
-    choices: ["ジャンゴ・フェット", "ザム・ウェセル", "アウラ・シング", "ボバ・フェット"],
-    correct: 1,
-    explain: "変身能力を持つクロウダイト族の賞金稼ぎザム・ウェセルが、探査ドロイドを使って2度目の暗殺を実行しようとしていました。"
-  },
-  {
-    q: "オビ=ワンが手がかりを追って訪れる、雨に覆われた海洋の惑星で、共和国のために密かにクローン軍が製造されていた場所は？",
-    choices: ["カミーノ", "ジオノーシス", "コルサント", "ムスタファー"],
-    correct: 0,
-    explain: "オビ=ワンは星図から消されていた海洋惑星カミーノにたどり着き、巨大なクローン軍の存在を知ります。"
-  },
-  {
-    q: "カミーノで製造されていたクローン軍の遺伝的な原型（テンプレート）となった賞金稼ぎは？",
-    choices: ["ダース・モール", "グリーバス将軍", "ジャンゴ・フェット", "エンボ"],
-    correct: 2,
-    explain: "賞金稼ぎジャンゴ・フェットが自身の遺伝子を提供する代わりに、無改造の複製（息子ボバ）を得る契約を結んでいました。"
-  },
-  {
-    q: "母の身を案じる悪夢を見たアナキンが、パドメと共に向かった、彼の故郷である砂の惑星は？",
-    choices: ["ナブー", "タトゥイーン", "ジオノーシス", "コレリア"],
-    correct: 1,
-    explain: "ナブーに身を隠すよう命じられていたアナキンでしたが、母シミを案じる夢に突き動かされ、パドメと共に故郷タトゥイーンへ向かいます。"
-  },
-  {
-    q: "タトゥイーンでタスケン・レイダーに捕らえられ、アナキンが救出に向かうも間に合わず死なせてしまう人物は？",
-    choices: ["パドメ・アミダラ", "シミ・スカイウォーカー", "ワトー", "ベルー・ラーズ"],
-    correct: 1,
-    explain: "母シミの死をきっかけに、アナキンは怒りに任せてタスケン・レイダーの野営地を皆殺しにしてしまいます。"
-  },
-  {
-    q: "ジオノーシスでオビ=ワンを捕らえ、後に分離主義勢力を裏で率いていたことが判明する伯爵は？",
-    choices: ["ドゥークー", "パルパティーン", "ネート・ガンレイ", "サン・ヒル"],
-    correct: 0,
-    explain: "ドゥークー伯爵は分離主義同盟の表向きの指導者であり、ジオノーシスの闘技場で処刑を指揮します。"
-  },
-  {
-    q: "ジオノーシスの闘技場での戦いの後、共和国が分離主義軍と戦うために初めて実戦投入する軍隊は？",
-    choices: ["ドロイド軍団", "クローン兵士軍団", "ウーキー族の戦士団", "マンダロリアン傭兵団"],
-    correct: 1,
-    explain: "ヨーダ率いるクローン兵士軍団が援軍として到着し、これが最初のクローン大戦の始まりとなります。"
-  },
-  {
-    q: "ジオノーシスでオビ=ワンとアナキンを相手に戦ったドゥークー伯爵の、劇中で明かされるシスとしての称号は？",
-    choices: ["ダース・モール", "ダース・ティラナス", "ダース・プレガス", "ダース・マウル"],
-    correct: 1,
-    explain: "ヨーダとの一騎打ちの後に逃走したドゥークーが、実はシス卿ダース・ティラナスであることが示唆されます。"
-  }
-    ]
+    levels: {
+      basic: [
+      {
+        q: "物語冒頭、元老院出席のためコルサントに到着した上院議員パドメ・アミダラを狙う事件は？",
+        choices: ["輸送船の爆破", "毒ガスの散布", "元老院での銃撃", "食事への毒物混入"],
+        correct: 0,
+        explain: "パドメの身代わりを務めていた侍女(女官)コルデが、輸送船の爆破によって命を落とします。"
+      },
+      {
+        q: "パドメの護衛を命じられる2人のジェダイは、オビ=ワン・ケノービと誰？",
+        choices: ["メイス・ウィンドウ", "アナキン・スカイウォーカー", "キ=アディ=ムンディ", "プロ・クーン"],
+        correct: 1,
+        explain: "師オビ=ワンと、その弟子として成長したアナキンが揃って護衛を命じられます。"
+      },
+      {
+        q: "パドメの寝室に毒虫(コウフン)を送り込む探査ドロイドを操っていた、変身能力を持つ賞金稼ぎは？",
+        choices: ["ジャンゴ・フェット", "ザム・ウェセル", "アウラ・シング", "ボバ・フェット"],
+        correct: 1,
+        explain: "変身能力を持つクロウダイト族の賞金稼ぎザム・ウェセルが、探査ドロイドを使って2度目の暗殺を実行しようとしていました。"
+      },
+      {
+        q: "オビ=ワンが手がかりを追って訪れる、雨に覆われた海洋の惑星で、共和国のために密かにクローン軍が製造されていた場所は？",
+        choices: ["カミーノ", "ジオノーシス", "コルサント", "ムスタファー"],
+        correct: 0,
+        explain: "オビ=ワンは星図から消されていた海洋惑星カミーノにたどり着き、巨大なクローン軍の存在を知ります。"
+      },
+      {
+        q: "カミーノで製造されていたクローン軍の遺伝的な原型（テンプレート）となった賞金稼ぎは？",
+        choices: ["ダース・モール", "グリーバス将軍", "ジャンゴ・フェット", "エンボ"],
+        correct: 2,
+        explain: "賞金稼ぎジャンゴ・フェットが自身の遺伝子を提供する代わりに、無改造の複製（息子ボバ）を得る契約を結んでいました。"
+      },
+      {
+        q: "母の身を案じる悪夢を見たアナキンが、パドメと共に向かった、彼の故郷である砂の惑星は？",
+        choices: ["ナブー", "タトゥイーン", "ジオノーシス", "コレリア"],
+        correct: 1,
+        explain: "ナブーに身を隠すよう命じられていたアナキンでしたが、母シミを案じる夢に突き動かされ、パドメと共に故郷タトゥイーンへ向かいます。"
+      },
+      {
+        q: "タトゥイーンでタスケン・レイダーに捕らえられ、アナキンが救出に向かうも間に合わず死なせてしまう人物は？",
+        choices: ["パドメ・アミダラ", "シミ・スカイウォーカー", "ワトー", "ベルー・ラーズ"],
+        correct: 1,
+        explain: "母シミの死をきっかけに、アナキンは怒りに任せてタスケン・レイダーの野営地を皆殺しにしてしまいます。"
+      },
+      {
+        q: "ジオノーシスでオビ=ワンを捕らえ、後に分離主義勢力を裏で率いていたことが判明する伯爵は？",
+        choices: ["ドゥークー", "パルパティーン", "ネート・ガンレイ", "サン・ヒル"],
+        correct: 0,
+        explain: "ドゥークー伯爵は分離主義同盟の表向きの指導者であり、ジオノーシスの闘技場で処刑を指揮します。"
+      },
+      {
+        q: "ジオノーシスの闘技場での戦いの後、共和国が分離主義軍と戦うために初めて実戦投入する軍隊は？",
+        choices: ["ドロイド軍団", "クローン兵士軍団", "ウーキー族の戦士団", "マンダロリアン傭兵団"],
+        correct: 1,
+        explain: "ヨーダ率いるクローン兵士軍団が援軍として到着し、これが最初のクローン大戦の始まりとなります。"
+      },
+      {
+        q: "ジオノーシスでオビ=ワンとアナキンを相手に戦ったドゥークー伯爵の、劇中で明かされるシスとしての称号は？",
+        choices: ["ダース・モール", "ダース・ティラナス", "ダース・プレガス", "ダース・マウル"],
+        correct: 1,
+        explain: "ヨーダとの一騎打ちの後に逃走したドゥークーが、実はシス卿ダース・ティラナスであることが示唆されます。"
+      }
+      ],
+      mid: [
+        {
+          q: "カミーノでオビ=ワンを出迎え、クローン軍の発注について説明する首相は？",
+          choices: ["ラマ・スー", "タウン・ウィ", "ポグル・ザ・レッサー", "サン・ヒル"],
+          correct: 0,
+          explain: "カミーノアンの首相ラマ・スーは、10年前に発注されたクローン軍が予定どおり進んでいるとオビ=ワンに告げます。"
+        },
+        {
+          q: "ジャンゴ・フェットが駆る宇宙船の名前は？",
+          choices: ["スレーヴI", "ミレニアム・ファルコン", "ゴースト", "レイザー・クレスト"],
+          correct: 0,
+          explain: "スレーヴIはジャンゴの愛機で、後に息子ボバへ受け継がれることになります。"
+        },
+        {
+          q: "暗殺に使われた毒針の出所をオビ=ワンに教えた、コルサントの食堂の主人は？",
+          choices: [
+            "デクスター・ジェットスター",
+            "ワトー",
+            "ボバ・フェット",
+            "ジャバ・ザ・ハット"
+          ],
+          correct: 0,
+          explain: "旧友デクスターは毒針がカミーノ製のサーベル・ダートだと見抜き、オビ=ワンに手がかりを与えます。"
+        },
+        {
+          q: "ジオノーシスの闘技場でジャンゴ・フェットを討ち取ったジェダイは？",
+          choices: ["メイス・ウィンドウ", "ヨーダ", "オビ=ワン・ケノービ", "キ=アディ=ムンディ"],
+          correct: 0,
+          explain: "メイス・ウィンドウは乱戦のさなかジャンゴを斬り、その様子を息子ボバが目撃することになります。"
+        },
+        {
+          q: "アナキンとパドメが結婚式を挙げる惑星は？",
+          choices: ["ナブー", "タトゥイーン", "コルサント", "ジオノーシス"],
+          correct: 0,
+          explain: "ジオノーシスの戦いの後、2人はナブーの湖畔で誰にも知られぬまま秘密の結婚式を挙げます。"
+        },
+        {
+          q: "ドゥークー伯爵がジオノーシスから持ち出した重要な設計図とは？",
+          choices: [
+            "究極兵器デス・スターの設計図",
+            "新型スターファイターの設計図",
+            "クローン増産施設の設計図",
+            "分離主義同盟の航路図"
+          ],
+          correct: 0,
+          explain: "ドゥークーはジオノーシス製の究極兵器の設計図をシディアスへ届け、後のデス・スターにつながります。"
+        },
+        {
+          q: "小惑星帯でオビ=ワンを撒くため、ジャンゴ・フェットが使用した兵器は？",
+          choices: ["震盪爆雷", "イオン砲", "プロトン魚雷", "トラクター・ビーム"],
+          correct: 0,
+          explain: "ジャンゴは震盪爆雷を投下して小惑星ごと爆砕し、追跡してきたオビ=ワンを振り切ろうとします。"
+        },
+        {
+          q: "ヨーダとの対決で、ドゥークー伯爵が最初に仕掛けた攻撃は？",
+          choices: [
+            "フォースの稲妻",
+            "ライトセーバーの投擲",
+            "巨大な柱を倒す",
+            "煙幕を張る"
+          ],
+          correct: 0,
+          explain: "ドゥークーはフォースの稲妻を放ちますが、ヨーダに難なく受け止められ吸収されてしまいます。"
+        },
+        {
+          q: "ジオノーシスの戦いでアナキンが右腕を失った相手は？",
+          choices: ["ドゥークー伯爵", "ジャンゴ・フェット", "ポグル・ザ・レッサー", "グリーバス将軍"],
+          correct: 0,
+          explain: "単身で挑んだアナキンはドゥークーに右腕を切り落とされ、以後は機械の義手を用いることになります。"
+        },
+        {
+          q: "闘技場でパドメが鎖につながれたまま立ち向かった猛獣は？",
+          choices: ["ネクス", "ランコア", "アクリー", "レーク"],
+          correct: 0,
+          explain: "猫科の猛獣ネクスがパドメに襲いかかりますが、彼女は柱をよじ登って応戦します。"
+        }
+      ],
+      hard: [
+        {
+          q: "カミーノの記録上、クローン軍を発注した人物とされていた故人のジェダイは？",
+          choices: ["サイフォ=ディアス", "ドゥークー", "クワイ=ガン・ジン", "イース・コス"],
+          correct: 0,
+          explain: "10年前に死亡したはずのジェダイ、サイフォ=ディアスの名で発注されていたことが謎を深めます。"
+        },
+        {
+          q: "星図からカミーノが消されている事実に、オビ=ワンが気づく手助けをしたのは？",
+          choices: [
+            "ヨーダと幼年組のジェダイたち",
+            "メイス・ウィンドウ",
+            "ジョカスタ・ヌー司書",
+            "アナキン・スカイウォーカー"
+          ],
+          correct: 0,
+          explain: "ヨーダのもとで学ぶ幼い訓練生が、重力が引き寄せているならデータが消されたのだと言い当てます。"
+        },
+        {
+          q: "ジャンゴ・フェットが遺伝子提供の見返りとして求めたものは？",
+          choices: [
+            "改造を施さないクローンを1体",
+            "分離主義同盟の指揮権",
+            "カミーノの統治権",
+            "共和国からの恩赦"
+          ],
+          correct: 0,
+          explain: "報酬に加えて無改造のクローンを1体要求し、それを息子ボバとして育てていました。"
+        },
+        {
+          q: "アナキンの継父としてタトゥイーンに登場し、シミの夫となっていた人物は？",
+          choices: ["クリーグ・ラーズ", "オーウェン・ラーズ", "ワトー", "ベルー・ホワイトサン"],
+          correct: 0,
+          explain: "水分農場を営むクリーグ・ラーズがシミを買い取って解放し、妻に迎えていました。"
+        },
+        {
+          q: "タトゥイーンでアナキンが出会う、後にルークを育てることになる義兄は？",
+          choices: ["オーウェン・ラーズ", "クリーグ・ラーズ", "ビッグス・ダークライター", "キツター"],
+          correct: 0,
+          explain: "クリーグの息子オーウェンが義兄にあたり、後にエピソード4でルークの育ての親となります。"
+        },
+        {
+          q: "ジオノーシスを統治し、闘技場での処刑を宣告する大司教は？",
+          choices: ["ポグル・ザ・レッサー", "ネート・ガンレイ", "サン・ヒル", "ワット・タンバー"],
+          correct: 0,
+          explain: "ジオノーシアンの大司教ポグル・ザ・レッサーが、侵入者たちへの処刑を高らかに宣告します。"
+        },
+        {
+          q: "オビ=ワンがカミーノで知らされた、当時完成していたクローン兵の数は？",
+          choices: ["約20万体", "約1万体", "約300万体", "約5000体"],
+          correct: 0,
+          explain: "ラマ・スーは20万体が戦闘可能で、さらに100万体が発注済みだとオビ=ワンに説明します。"
+        },
+        {
+          q: "ドゥークーとの戦いでヨーダが最後に取った行動は？",
+          choices: [
+            "崩れ落ちる柱から2人を救い、ドゥークーを取り逃がした",
+            "ドゥークーの両腕を切り落とした",
+            "ドゥークーを拘束して連行した",
+            "船ごとドゥークーを撃墜した"
+          ],
+          correct: 0,
+          explain: "ドゥークーが倒した巨大な柱からオビ=ワンとアナキンを救うことを優先し、その隙に彼の逃走を許します。"
+        },
+        {
+          q: "分離主義勢力への対応として元老院が可決し、事実上クローン軍の投入を可能にしたものは？",
+          choices: [
+            "最高議長への非常大権の付与",
+            "通商連合への経済制裁",
+            "ジェダイへの全権委任",
+            "惑星ジオノーシスへの宣戦布告"
+          ],
+          correct: 0,
+          explain: "ジャー・ジャーの動議でパルパティーンに非常大権が与えられ、彼は即座にクローン軍の創設を承認します。"
+        },
+        {
+          q: "アナキンとパドメが闘技場へ連行される前、ジオノーシスの工場でパドメが落ちかけた設備は？",
+          choices: [
+            "溶けた金属を流し込む鋳造炉",
+            "巨大な冷却水槽",
+            "廃棄物の焼却炉",
+            "反応炉の炉心"
+          ],
+          correct: 0,
+          explain: "ドロイド工場のベルトコンベア上で、パドメは溶けた金属が注がれる容器に落ち、間一髪で脱出します。"
+        }
+      ]
+    }
   },
   {
     id: 'ep3',
     ep: 'EPISODE III',
     name: 'シスの復讐',
-    questions: [
-  {
-    q: "物語冒頭、パルパティーン最高議長を誘拐したドロイド軍の最高司令官は？",
-    choices: ["ダース・モール", "グリーバス将軍", "ドゥークー伯爵", "ネート・ガンレイ"],
-    correct: 1,
-    explain: "半機械の体を持つグリーバス将軍が旗艦インビジブル・ハンドに議長を捕らえ、コルサント上空に潜んでいました。"
+    levels: {
+      basic: [
+      {
+        q: "物語冒頭、パルパティーン最高議長を誘拐したドロイド軍の最高司令官は？",
+        choices: ["ダース・モール", "グリーバス将軍", "ドゥークー伯爵", "ネート・ガンレイ"],
+        correct: 1,
+        explain: "半機械の体を持つグリーバス将軍が旗艦インビジブル・ハンドに議長を捕らえ、コルサント上空に潜んでいました。"
+      },
+      {
+        q: "アナキンとオビ=ワンが議長救出のため潜入する、グリーバスの旗艦の名前は？",
+        choices: ["インビジブル・ハンド", "エグゼキューター", "リサージェント級", "デス・スター"],
+        correct: 0,
+        explain: "2人はスターファイターで旗艦インビジブル・ハンドに突入し、救出作戦を開始します。"
+      },
+      {
+        q: "旗艦内での戦闘の末、捕らえられていたドゥークー伯爵に対してアナキンが取る行動は？",
+        choices: ["降伏を受け入れて拘束する", "パルパティーンに促されて処刑する", "オビ=ワンに引き渡す", "見逃して逃がす"],
+        correct: 1,
+        explain: "アナキンはドゥークーの両腕を切り落として無力化しますが、パルパティーンに「殺せ」とそそのかされ、丸腰の相手の首を斬って処刑してしまいます。"
+      },
+      {
+        q: "アナキンが物語を通して繰り返し見る悪夢で、命を落とすことを予知してしまう相手は？",
+        choices: ["オビ=ワン・ケノービ", "パドメ・アミダラ", "ヨーダ", "パルパティーン"],
+        correct: 1,
+        explain: "妻パドメが出産で命を落とす夢に苦しめられ、これがアナキンが闇落ちする大きな動機になります。"
+      },
+      {
+        q: "パルパティーンがアナキンに語る、死者を蘇らせる力すら持つとされる伝説上のシス卿の名は？",
+        choices: ["プレガス・ザ・ワイズ", "エクザー・クン", "ダース・ベイン", "ダース・タニス"],
+        correct: 0,
+        explain: "パルパティーンはプレガス・ザ・ワイズの伝説を語り、フォースの力で死を克服できるかもしれないとアナキンを誘惑します。"
+      },
+      {
+        q: "メイス・ウィンドウがパルパティーンの正体を暴き対決する際、シスとしてのパルパティーンの称号は？",
+        choices: ["ダース・シディアス", "ダース・プレガス", "ダース・ティラナス", "ダース・ベイダー"],
+        correct: 0,
+        explain: "パルパティーンの正体は暗黒卿ダース・シディアスであり、メイスに正体を見破られ執務室で対決になります。"
+      },
+      {
+        q: "メイスとの対決の末、アナキンが裏切りに転じたことで発令される、ジェダイ壊滅のための命令の名称は？",
+        choices: ["オーダー66", "オーダー99", "ダイレクティブ7", "プロトコル・ゼロ"],
+        correct: 0,
+        explain: "パルパティーンが全銀河のクローン軍に発したオーダー66により、各地のジェダイが一斉に殺害されていきます。"
+      },
+      {
+        q: "パルパティーンへの忠誠を誓い、シスの一員として生まれ変わったアナキンが名乗ることになる名は？",
+        choices: ["ダース・モール", "ダース・ベイダー", "ダース・ティラナス", "ダース・マランク"],
+        correct: 1,
+        explain: "銀河帝国の誕生と同時に、アナキン・スカイウォーカーはダース・ベイダーとして生まれ変わります。"
+      },
+      {
+        q: "アナキンとオビ=ワンの最終決闘の舞台となる、溶岩に覆われた惑星は？",
+        choices: ["ムスタファー", "ジオノーシス", "コルサント", "カシーック"],
+        correct: 0,
+        explain: "鉱物採掘惑星ムスタファーの溶岩地帯で、かつての師弟が壮絶な戦いを繰り広げます。"
+      },
+      {
+        q: "決闘に敗れ瀕死となったアナキンが帝国の技術で再生を果たす一方、パドメが出産後に息を引き取り誕生する双子は？",
+        choices: ["ルークとレイア", "ハンとチューイ", "ラースとオーウェン", "ベイルとブレハ"],
+        correct: 0,
+        explain: "パドメは双子ルークとレイアを出産した直後に命を落とし、2人はそれぞれ別々の場所で密かに育てられることになります。"
+      }
+      ],
+      mid: [
+        {
+          q: "グリーバス将軍が最期を迎える惑星は？",
+          choices: ["ウータパウ", "ムスタファー", "カシーック", "ジオノーシス"],
+          correct: 0,
+          explain: "オビ=ワンはウータパウの巨大な縦穴都市でグリーバスを追い詰め、これを討ち取ります。"
+        },
+        {
+          q: "オーダー66が発令されたとき、ヨーダが滞在していたウーキーの惑星は？",
+          choices: ["カシーック", "ダゴバ", "ウータパウ", "フェルーシア"],
+          correct: 0,
+          explain: "ヨーダはウーキーたちと共にカシーックで戦っており、背後から撃たれる寸前に気配を察して難を逃れます。"
+        },
+        {
+          q: "ヨーダとパルパティーンが直接対決する場所は？",
+          choices: ["元老院議場", "ジェダイ聖堂", "ムスタファーの施設", "議長公邸の執務室"],
+          correct: 0,
+          explain: "2人はコルサントの元老院議場へ戦いの場を移し、議員用のポッドを投げ合う激闘を繰り広げます。"
+        },
+        {
+          q: "アナキンがジェダイ聖堂を襲撃した際に率いたクローン部隊は？",
+          choices: ["第501軍団", "第212大隊", "第104大隊", "第41外征軍団"],
+          correct: 0,
+          explain: "アナキン直属の第501軍団が聖堂に踏み込み、逃げ遅れた者たちを容赦なく襲撃します。"
+        },
+        {
+          q: "オビ=ワンがウータパウでグリーバスを追う際に乗った、巨大なトカゲ型の生物は？",
+          choices: ["ボガ", "ランコア", "アクリー", "トーントーン"],
+          correct: 0,
+          explain: "ヴァラクティル種のボガに乗り、オビ=ワンは断崖絶壁を駆け下りてグリーバスに追いつきます。"
+        },
+        {
+          q: "パドメの葬儀が執り行われる惑星は？",
+          choices: ["ナブー", "オルデラン", "コルサント", "タトゥイーン"],
+          correct: 0,
+          explain: "故郷ナブーで大規模な葬列が行われ、その姿は妊娠していたことが分かるよう整えられていました。"
+        },
+        {
+          q: "生まれた双子のうち、レイアを引き取ることになる人物は？",
+          choices: [
+            "ベイル・オーガナ",
+            "オーウェン・ラーズ",
+            "モン・モスマ",
+            "パナカ隊長"
+          ],
+          correct: 0,
+          explain: "オルデランの元老院議員ベイル・オーガナが、妻とともにレイアを養女として迎え入れます。"
+        },
+        {
+          q: "ルークを引き取り、タトゥイーンで育てることになる夫婦は？",
+          choices: [
+            "オーウェンとベルー・ラーズ",
+            "ベイルとブレハ・オーガナ",
+            "クリーグとシミ・ラーズ",
+            "ワトーとキツター"
+          ],
+          correct: 0,
+          explain: "オビ=ワンがルークをタトゥイーンへ運び、義兄オーウェンとその妻ベルーに託します。"
+        },
+        {
+          q: "パルパティーンが元老院で共和国を何に作り変えると宣言したか？",
+          choices: [
+            "最初の銀河帝国",
+            "分離主義同盟",
+            "新共和国",
+            "銀河連邦評議会"
+          ],
+          correct: 0,
+          explain: "安全と安定のためと称して銀河帝国の樹立を宣言し、議場は万雷の拍手で迎えます。"
+        },
+        {
+          q: "ムスタファーの決闘の末、オビ=ワンが勝負を決めた要因は？",
+          choices: [
+            "高所を取り、跳びかかったアナキンの四肢を斬った",
+            "溶岩にアナキンを突き落とした",
+            "フォースでアナキンを気絶させた",
+            "アナキンの武器を溶岩へ投げ捨てた"
+          ],
+          correct: 0,
+          explain: "高所は自分が取ったと警告したにもかかわらずアナキンは跳躍し、両脚と左腕を失って溶岩のそばに転落します。"
+        }
+      ],
+      hard: [
+        {
+          q: "パルパティーン逮捕に向かったメイス・ウィンドウに同行し、真っ先に倒されたジェダイの1人は？",
+          choices: ["キット・フィストー", "プロ・クーン", "ルミナーラ・アンドゥリ", "シャアク・ティ"],
+          correct: 0,
+          explain: "キット・フィストー、アジー・セクラ、サーセ・ティンの3人は執務室に踏み込んだ直後に斬り伏せられます。"
+        },
+        {
+          q: "パルパティーンの働きかけでアナキンが評議会に加わった際、与えられなかったものは？",
+          choices: [
+            "マスターの称号",
+            "評議会への出席権",
+            "部隊の指揮権",
+            "議長への報告義務"
+          ],
+          correct: 0,
+          explain: "議長個人の代理人として評議会入りは認められたものの、マスターの称号は与えられず、アナキンは深く不満を抱きます。"
+        },
+        {
+          q: "オビ=ワンとヨーダがジェダイ聖堂に戻って行った工作は？",
+          choices: [
+            "帰還を促す信号を、身を隠せという警告に書き換えた",
+            "聖堂のホロクロンをすべて破壊した",
+            "クローン軍の通信を傍受する装置を仕掛けた",
+            "聖堂の防御シールドを再起動した"
+          ],
+          correct: 0,
+          explain: "生き残りを呼び戻す信号が罠になっていたため、2人はそれを隠れろという警告へ書き換えて発信し直します。"
+        },
+        {
+          q: "ムスタファーでアナキンがパドメに対して行った行為は？",
+          choices: [
+            "フォースで首を絞めた",
+            "ライトセーバーを突きつけた",
+            "宇宙船から追い出した",
+            "気絶させて船に閉じ込めた"
+          ],
+          correct: 0,
+          explain: "オビ=ワンが同行していたことに激昂したアナキンは、フォースでパドメの首を絞めて昏倒させてしまいます。"
+        },
+        {
+          q: "ヨーダが戦いに敗れた後、亡命先として選んだ惑星は？",
+          choices: ["ダゴバ", "タトゥイーン", "オルデラン", "ポリス・マサ"],
+          correct: 0,
+          explain: "皇帝との対決に敗れたヨーダは、フォースの気配が隠れる沼の惑星ダゴバへ身を潜めます。"
+        },
+        {
+          q: "パルパティーンの語るダース・プレガスの伝説で、プレガスはどのように死んだとされたか？",
+          choices: [
+            "眠っている間に弟子に殺された",
+            "実験の失敗で自滅した",
+            "ジェダイに討たれた",
+            "寿命を延ばしすぎて朽ち果てた"
+          ],
+          correct: 0,
+          explain: "他者を死から救う力を持ちながら、自分自身は弟子に眠っている間に殺されたという皮肉な最期が語られます。"
+        },
+        {
+          q: "グリーバス将軍が戦闘時に同時に扱うライトセーバーの本数は？",
+          choices: ["4本", "2本", "6本", "3本"],
+          correct: 0,
+          explain: "腕を4本に分裂させ、討ち取ったジェダイから奪った4本のライトセーバーを回転させて戦います。"
+        },
+        {
+          q: "双子が誕生し、パドメが息を引き取る医療施設がある場所は？",
+          choices: ["ポリス・マサ", "コルサント", "ナブー", "オルデラン"],
+          correct: 0,
+          explain: "小惑星ポリス・マサの秘密医療施設で双子が生まれ、パドメは生きる意志を失って息を引き取ります。"
+        },
+        {
+          q: "ムスタファーで瀕死のアナキンに、オビ=ワンが投げかけた最後の言葉の趣旨は？",
+          choices: [
+            "お前は選ばれし者だった",
+            "いつか必ず戻ってこい",
+            "私を許してくれ",
+            "フォースと共にあれ"
+          ],
+          correct: 0,
+          explain: "選ばれし者として闇を滅ぼすはずだった弟弟子への痛切な叫びとして、この言葉が投げかけられます。"
+        },
+        {
+          q: "劇中、死後もフォースを通じて存在し続ける方法を会得していたと明かされるジェダイは？",
+          choices: [
+            "クワイ=ガン・ジン",
+            "メイス・ウィンドウ",
+            "キ=アディ=ムンディ",
+            "プロ・クーン"
+          ],
+          correct: 0,
+          explain: "ヨーダは、クワイ=ガンが死を超えて存在する術を身につけたと告げ、その修行法をオビ=ワンに伝えます。"
+        }
+      ]
+    }
   },
   {
-    q: "アナキンとオビ=ワンが議長救出のため潜入する、グリーバスの旗艦の名前は？",
-    choices: ["インビジブル・ハンド", "エグゼキューター", "リサージェント級", "デス・スター"],
-    correct: 0,
-    explain: "2人はスターファイターで旗艦インビジブル・ハンドに突入し、救出作戦を開始します。"
+    id: 'ep4',
+    ep: 'EPISODE IV',
+    name: '新たなる希望',
+    levels: {
+      basic: [
+        {
+          q: "レイア姫が助けを求めるメッセージを託したドロイドは？",
+          choices: ["R2-D2", "C-3PO", "BB-8", "IG-88"],
+          correct: 0,
+          explain: "レイアはR2-D2にホログラムのメッセージとデス・スターの設計図を隠し、脱出ポッドで送り出します。"
+        },
+        {
+          q: "ルーク・スカイウォーカーが叔父夫婦と暮らしていた惑星は？",
+          choices: ["タトゥイーン", "ナブー", "オルデラン", "ヤヴィン4"],
+          correct: 0,
+          explain: "ルークは砂の惑星タトゥイーンで水分農場を手伝いながら、外の世界に憧れる日々を送っていました。"
+        },
+        {
+          q: "ルークにフォースとライトセーバーを教える、砂漠に隠棲していた老人は？",
+          choices: [
+            "オビ=ワン・ケノービ",
+            "ヨーダ",
+            "クワイ=ガン・ジン",
+            "ランド・カルリジアン"
+          ],
+          correct: 0,
+          explain: "ベン・ケノービと名乗って隠れ住んでいた老オビ=ワンが、ルークに父の形見とフォースの教えを授けます。"
+        },
+        {
+          q: "ミレニアム・ファルコンの船長を務める密輸業者は？",
+          choices: ["ハン・ソロ", "ランド・カルリジアン", "ボバ・フェット", "ウェッジ・アンティリーズ"],
+          correct: 0,
+          explain: "ハン・ソロは報酬目当てにルークたちをオルデランまで運ぶことを引き受けます。"
+        },
+        {
+          q: "ハン・ソロの相棒である、毛むくじゃらのウーキーは？",
+          choices: ["チューバッカ", "タルフル", "グリード", "ジャー・ジャー・ビンクス"],
+          correct: 0,
+          explain: "チューバッカは副操縦士としてハンと行動を共にし、言葉は通じなくとも固い絆で結ばれています。"
+        },
+        {
+          q: "惑星をまるごと破壊できる、帝国の球状の巨大兵器は？",
+          choices: ["デス・スター", "スター・デストロイヤー", "スーパーレーザー砲台", "イオン砲"],
+          correct: 0,
+          explain: "デス・スターはその威力を示すため、実際にオルデランを一瞬で消滅させてしまいます。"
+        },
+        {
+          q: "黒いマスクと甲冑をまとい、帝国軍を率いる人物は？",
+          choices: ["ダース・ベイダー", "ターキン総督", "ボバ・フェット", "パルパティーン"],
+          correct: 0,
+          explain: "ダース・ベイダーは反乱軍から設計図を取り戻すため、レイアの船を拿捕して彼女を捕らえます。"
+        },
+        {
+          q: "デス・スター内でダース・ベイダーと対決したオビ=ワンはどうなった？",
+          choices: [
+            "斬られて姿が消え、フォースと一体になった",
+            "重傷を負って脱出した",
+            "ベイダーを倒して生還した",
+            "捕らえられて投獄された"
+          ],
+          correct: 0,
+          explain: "ルークたちを逃がすため自ら剣を引いたオビ=ワンは、斬られた瞬間に衣だけを残して姿を消します。"
+        },
+        {
+          q: "最終決戦でデス・スターを破壊したのは誰？",
+          choices: ["ルーク・スカイウォーカー", "ハン・ソロ", "ウェッジ・アンティリーズ", "レイア・オーガナ"],
+          correct: 0,
+          explain: "ルークのXウィングが放ったプロトン魚雷が排気口に命中し、デス・スターは大爆発を起こします。"
+        },
+        {
+          q: "最後の攻撃の瞬間、ルークが照準コンピュータを切って頼ったものは？",
+          choices: ["フォース", "R2-D2の計算", "ハン・ソロの指示", "レイアの通信"],
+          correct: 0,
+          explain: "フォースを使えというオビ=ワンの声に従い、ルークは機械に頼らず自らの感覚で魚雷を撃ち込みます。"
+        }
+      ],
+      mid: [
+        {
+          q: "デス・スターの威力を示すために破壊された、レイアの故郷の惑星は？",
+          choices: ["オルデラン", "ナブー", "コルサント", "ダントゥイーン"],
+          correct: 0,
+          explain: "ターキン総督はレイアから情報を引き出すため、彼女の目の前でオルデランを消滅させます。"
+        },
+        {
+          q: "タトゥイーンでC-3POとR2-D2を捕らえて売り飛ばした、小柄な種族は？",
+          choices: ["ジャワ族", "タスケン・レイダー", "イウォーク族", "グンガン族"],
+          correct: 0,
+          explain: "サンドクローラーで砂漠を巡るジャワ族がドロイドを回収し、ラーズ農場へ売りつけます。"
+        },
+        {
+          q: "ルークを育てていた叔父夫婦の名前は？",
+          choices: [
+            "オーウェンとベルー",
+            "ベイルとブレハ",
+            "クリーグとシミ",
+            "ワトーとキツター"
+          ],
+          correct: 0,
+          explain: "オーウェンとベルー・ラーズは帝国軍に殺害され、それがルークが故郷を離れる決定打となります。"
+        },
+        {
+          q: "モス・アイズリーの酒場でハン・ソロに銃を向け、返り討ちにされる緑色の賞金稼ぎは？",
+          choices: ["グリード", "ボバ・フェット", "デンガー", "ボスク"],
+          correct: 0,
+          explain: "ロディアン族のグリードはジャバの差し金でハンを捕らえようとしますが、テーブルの下から撃たれます。"
+        },
+        {
+          q: "ハン・ソロが多額の借金をしている犯罪王は？",
+          choices: ["ジャバ・ザ・ハット", "ターキン総督", "ワトー", "ランド・カルリジアン"],
+          correct: 0,
+          explain: "積荷を投棄したせいでジャバへの借金が膨らみ、ハンは常に賞金稼ぎに追われる身となっています。"
+        },
+        {
+          q: "デス・スターの司令官で、ダース・ベイダーより上位の立場にある帝国の総督は？",
+          choices: ["ターキン総督", "オジール提督", "ピエット提督", "モティ提督"],
+          correct: 0,
+          explain: "ウィルハフ・ターキン総督がデス・スターの指揮権を握り、ベイダーにも指示を出す立場にありました。"
+        },
+        {
+          q: "反乱軍の秘密基地が置かれていた、ヤヴィン系の衛星は？",
+          choices: ["ヤヴィン4", "ホス", "ダントゥイーン", "エンドア"],
+          correct: 0,
+          explain: "古代寺院を転用したヤヴィン4の基地から、反乱軍はデス・スターへの決死の攻撃隊を発進させます。"
+        },
+        {
+          q: "デス・スター内でレイアを救出する際、ルークとハンが用いた手段は？",
+          choices: [
+            "ストームトルーパーの装甲に変装した",
+            "整備ドロイドに偽装した",
+            "通信を偽造して独房を開けさせた",
+            "壁を爆破して侵入した"
+          ],
+          correct: 0,
+          explain: "2人は倒したストームトルーパーの装甲をまとい、チューバッカを護送するふりをして独房区画へ向かいます。"
+        },
+        {
+          q: "ハン・ソロがミレニアム・ファルコンの速さを自慢する際に持ち出す記録は？",
+          choices: [
+            "ケッセル・ランを12パーセクで走破した",
+            "銀河を最短で一周した",
+            "帝国の追撃を100回振り切った",
+            "光速の記録を塗り替えた"
+          ],
+          correct: 0,
+          explain: "ケッセル・ランを12パーセクで駆け抜けたという自慢話で、ハンは船の性能を売り込みます。"
+        },
+        {
+          q: "設計図の解析で判明したデス・スターの弱点は？",
+          choices: [
+            "反応炉につながる排気口",
+            "司令塔の防御シールド",
+            "主砲の冷却装置",
+            "ハイパードライブの接続部"
+          ],
+          correct: 0,
+          explain: "表面の小さな排気口に魚雷を撃ち込めば、反応炉まで届いて連鎖爆発を起こすと分析されました。"
+        }
+      ],
+      hard: [
+        {
+          q: "オビ=ワンがルークに手渡したライトセーバーの、元の持ち主は？",
+          choices: [
+            "ルークの父アナキン",
+            "クワイ=ガン・ジン",
+            "オビ=ワン自身",
+            "メイス・ウィンドウ"
+          ],
+          correct: 0,
+          explain: "父が使っていた武器だとオビ=ワンは説明し、ベイダーに殺されたという偽りの経緯を添えて渡します。"
+        },
+        {
+          q: "ジャワのサンドクローラー襲撃の跡を見たオビ=ワンが、真犯人だと見抜いた相手は？",
+          choices: [
+            "帝国軍のストームトルーパー",
+            "タスケン・レイダー",
+            "ジャバの手下",
+            "別のジャワの一団"
+          ],
+          correct: 0,
+          explain: "砂の民の仕業に見せかけてあるが、この正確な射撃はストームトルーパーのものだとオビ=ワンは指摘します。"
+        },
+        {
+          q: "ルークの幼なじみで、反乱軍のパイロットとして再会し、デス・スター攻撃で戦死するのは？",
+          choices: [
+            "ビッグス・ダークライター",
+            "ウェッジ・アンティリーズ",
+            "ドドンナ将軍",
+            "ジェク・ポーキンス"
+          ],
+          correct: 0,
+          explain: "ビッグスはルークの旧友としてレッド中隊に加わりますが、塹壕での攻撃中にベイダーに撃墜されます。"
+        },
+        {
+          q: "デス・スター攻撃で被弾しながらも生還した、ルークの僚機のパイロットは？",
+          choices: [
+            "ウェッジ・アンティリーズ",
+            "ビッグス・ダークライター",
+            "ジェク・ポーキンス",
+            "ランド・カルリジアン"
+          ],
+          correct: 0,
+          explain: "ウェッジは損傷により離脱を命じられて生き延び、以降の三部作でも主要なパイロットとして活躍します。"
+        },
+        {
+          q: "オビ=ワンがデス・スター内で単独行動を取り、無効化した装置は？",
+          choices: [
+            "トラクター・ビーム",
+            "防御シールド発生装置",
+            "主砲の照準システム",
+            "ゴミ圧縮機の制御装置"
+          ],
+          correct: 0,
+          explain: "ファルコンを捕らえていたトラクター・ビームを解除したことで、一行は脱出が可能になります。"
+        },
+        {
+          q: "レイアが監禁されていた独房の番号は？",
+          choices: ["2187", "1138", "3263827", "66"],
+          correct: 0,
+          explain: "独房2187という番号は、ジョージ・ルーカスが影響を受けた短編映画への目配せとして知られています。"
+        },
+        {
+          q: "脱出の途中、ルークたちが逃げ込んで危機に陥った場所は？",
+          choices: [
+            "ゴミ圧縮機",
+            "反応炉の冷却区画",
+            "格納庫の燃料タンク",
+            "換気ダクト"
+          ],
+          correct: 0,
+          explain: "ゴミ圧縮機に飛び込んだ一行は、水中の生物に襲われた上に壁が迫る二重の危機に陥ります。"
+        },
+        {
+          q: "再会したオビ=ワンに対し、ダース・ベイダーが口にした過去の関係を示す言葉は？",
+          choices: [
+            "我々が別れたとき、私はまだ学ぶ者だった",
+            "お前は私の父を殺した",
+            "お前に師と呼ぶ資格はない",
+            "私はもうアナキンではない"
+          ],
+          correct: 0,
+          explain: "かつて師弟であったことを示すこの台詞が、2人の因縁を観客に印象づけます。"
+        },
+        {
+          q: "レイアの船が拿捕された際、C-3POとR2-D2がタトゥイーンへ降下する手段となったものは？",
+          choices: ["脱出ポッド", "小型シャトル", "貨物コンテナ", "スターファイター"],
+          correct: 0,
+          explain: "生命反応がないため見逃された脱出ポッドに2体が乗り込み、タトゥイーンの砂漠へ不時着します。"
+        },
+        {
+          q: "ヤヴィン4の基地で、デス・スター攻撃の作戦説明を行った反乱軍の将軍は？",
+          choices: ["ドドンナ将軍", "アクバー提督", "リーカン将軍", "マダイン将軍"],
+          correct: 0,
+          explain: "ドドンナ将軍が排気口への攻撃計画を説明し、成功率の低さを承知の上で出撃が決定されます。"
+        }
+      ]
+    }
   },
   {
-    q: "旗艦内での戦闘の末、捕らえられていたドゥークー伯爵に対してアナキンが取る行動は？",
-    choices: ["降伏を受け入れて拘束する", "パルパティーンに促されて処刑する", "オビ=ワンに引き渡す", "見逃して逃がす"],
-    correct: 1,
-    explain: "アナキンはドゥークーの両腕を切り落として無力化しますが、パルパティーンに「殺せ」とそそのかされ、丸腰の相手の首を斬って処刑してしまいます。"
+    id: 'ep5',
+    ep: 'EPISODE V',
+    name: '帝国の逆襲',
+    levels: {
+      basic: [
+        {
+          q: "物語の冒頭、反乱軍が基地を置いている氷の惑星は？",
+          choices: ["ホス", "ダゴバ", "エンドア", "タトゥイーン"],
+          correct: 0,
+          explain: "極寒の惑星ホスに築かれたエコー基地が、帝国の探査ドロイドに発見されてしまいます。"
+        },
+        {
+          q: "ルークがジェダイの修行を受ける、沼に覆われた惑星は？",
+          choices: ["ダゴバ", "ホス", "ベスピン", "カシーック"],
+          correct: 0,
+          explain: "オビ=ワンの霊の導きで、ルークは霧深い沼の惑星ダゴバへ向かいます。"
+        },
+        {
+          q: "ダゴバでルークを鍛える、小柄で緑色のジェダイ・マスターは？",
+          choices: ["ヨーダ", "オビ=ワン・ケノービ", "メイス・ウィンドウ", "クワイ=ガン・ジン"],
+          correct: 0,
+          explain: "当初は正体を隠してルークを試したヨーダが、やがて彼の師として本格的な修行を課します。"
+        },
+        {
+          q: "ハンたちが避難先として向かう、雲の中に浮かぶ都市の名は？",
+          choices: ["クラウド・シティ", "コルサント", "シード", "モス・アイズリー"],
+          correct: 0,
+          explain: "ベスピンの大気中に浮かぶ採掘都市クラウド・シティで、一行はランドの歓待を受けます。"
+        },
+        {
+          q: "クラウド・シティでハン・ソロが受けた仕打ちは？",
+          choices: [
+            "カーボン冷凍されて固められた",
+            "独房に投獄された",
+            "記憶を消された",
+            "宇宙空間に放り出された"
+          ],
+          correct: 0,
+          explain: "ベイダーは冷凍装置の安全性を試すため、ハンを実験台としてカーボン冷凍にかけます。"
+        },
+        {
+          q: "カーボン冷凍されたハン・ソロを引き取っていった賞金稼ぎは？",
+          choices: ["ボバ・フェット", "ジャンゴ・フェット", "グリード", "デンガー"],
+          correct: 0,
+          explain: "ボバ・フェットはジャバへ引き渡して賞金を得るため、凍結されたハンを自分の船へ運び去ります。"
+        },
+        {
+          q: "決闘の最中、ダース・ベイダーがルークに明かした衝撃の事実は？",
+          choices: [
+            "自分がルークの父であること",
+            "レイアがルークの妹であること",
+            "オビ=ワンがまだ生きていること",
+            "皇帝の正体がシスであること"
+          ],
+          correct: 0,
+          explain: "父を殺したのはベイダーだと信じていたルークに対し、ベイダーは自分こそが父だと告げます。"
+        },
+        {
+          q: "ベイダーとの決闘でルークが失ったものは？",
+          choices: ["右手", "左脚", "片目", "ライトセーバーのみ"],
+          correct: 0,
+          explain: "ライトセーバーごと右手を切り落とされ、後に機械の義手を装着することになります。"
+        },
+        {
+          q: "クラウド・シティを治める、ハン・ソロの旧友は？",
+          choices: [
+            "ランド・カルリジアン",
+            "ボバ・フェット",
+            "ウェッジ・アンティリーズ",
+            "アクバー提督"
+          ],
+          correct: 0,
+          explain: "かつてファルコンを賭けでハンに奪われた旧友ランドが、この都市の管理責任者を務めていました。"
+        },
+        {
+          q: "ホスの戦いで帝国軍が投入した、4本脚の巨大な歩行兵器は？",
+          choices: ["AT-AT", "AT-ST", "TIEファイター", "スノースピーダー"],
+          correct: 0,
+          explain: "AT-ATウォーカーの群れが基地のシールド発生装置を目指して進軍し、反乱軍を圧倒します。"
+        }
+      ],
+      mid: [
+        {
+          q: "ホスでルークを襲い、洞窟に引きずり込んだ雪の怪物は？",
+          choices: ["ワンパ", "ランコア", "トーントーン", "サルラック"],
+          correct: 0,
+          explain: "ワンパに捕らえられたルークは、フォースでライトセーバーを引き寄せて脱出します。"
+        },
+        {
+          q: "ホスで反乱軍が騎乗動物として使っていた生物は？",
+          choices: ["トーントーン", "ボガ", "デューバック", "ネクス"],
+          correct: 0,
+          explain: "寒冷地に適応したトーントーンが偵察に使われ、ハンは凍死しかけたルークをその腹の中で温めます。"
+        },
+        {
+          q: "ヨーダが「やるか、やらぬかだ。試しなどない」と語った場面で、ルークに求めた行為は？",
+          choices: [
+            "沼に沈んだXウィングを引き上げること",
+            "岩を空中に浮かべること",
+            "逆立ちのまま瞑想すること",
+            "洞窟に入ること"
+          ],
+          correct: 0,
+          explain: "できるわけがないと諦めるルークに対し、ヨーダは自らXウィングを浮上させて不可能ではないと示します。"
+        },
+        {
+          q: "ダゴバの暗い洞窟でルークが見た幻影の正体は？",
+          choices: [
+            "ダース・ベイダー。斬り落とした仮面の中には自分の顔があった",
+            "皇帝パルパティーン",
+            "父アナキンの若い姿",
+            "死んだオビ=ワン"
+          ],
+          correct: 0,
+          explain: "自らの内なる闇を映したこの幻影が、後に明かされる出生の真実を暗示します。"
+        },
+        {
+          q: "ルークをダゴバへ向かわせ、ヨーダの存在を教えたのは？",
+          choices: [
+            "オビ=ワン・ケノービの霊",
+            "レイア・オーガナ",
+            "R2-D2の記録",
+            "ハン・ソロ"
+          ],
+          correct: 0,
+          explain: "ホスで遭難したルークの前にオビ=ワンの霊が現れ、ダゴバでヨーダに学べと告げます。"
+        },
+        {
+          q: "ベイダーがクラウド・シティでハンたちを罠にかけた本当の目的は？",
+          choices: [
+            "ルークをおびき寄せるため",
+            "ファルコンを鹵獲するため",
+            "反乱軍の基地の場所を聞き出すため",
+            "ランドを失脚させるため"
+          ],
+          correct: 0,
+          explain: "仲間の危機を感じ取ったルークが必ず駆けつけると読み、ベイダーは彼らを餌として利用します。"
+        },
+        {
+          q: "ハイパードライブが故障したファルコンが逃げ込んだ場所は？",
+          choices: ["小惑星帯", "恒星の光球", "ガス惑星の大気圏", "廃棄された宇宙港"],
+          correct: 0,
+          explain: "危険な小惑星帯へ突入することで、ハンは追撃するTIEファイターとスター・デストロイヤーを振り切ります。"
+        },
+        {
+          q: "ファルコンが身を隠した洞窟の正体は？",
+          choices: [
+            "巨大宇宙生物の体内",
+            "帝国の秘密基地",
+            "古代の採掘坑",
+            "放棄された格納庫"
+          ],
+          correct: 0,
+          explain: "地面が揺れ鍾乳石が動くことから、ハンは洞窟ではなく巨大生物の口内だと気づき全速で脱出します。"
+        },
+        {
+          q: "カーボン冷凍される直前、愛していると告げたレイアにハン・ソロが返した言葉は？",
+          choices: ["知ってるさ", "私もだ", "必ず戻る", "君を忘れない"],
+          correct: 0,
+          explain: "脚本になかったとされるこの短い返答が、ハン・ソロという人物像を象徴する名台詞になりました。"
+        },
+        {
+          q: "決闘の後、宙吊りになったルークの助けを感じ取り、救出に向かわせたのは誰？",
+          choices: ["レイア", "ランド", "R2-D2", "チューバッカ"],
+          correct: 0,
+          explain: "フォースを通じたルークの呼びかけをレイアが感じ取り、ファルコンを引き返させて彼を救います。"
+        }
+      ],
+      hard: [
+        {
+          q: "ホスの戦いで、ルークがAT-ATを倒すために用いた手段は？",
+          choices: [
+            "トウケーブルで脚を絡め取って転倒させた",
+            "コックピットを直接狙撃した",
+            "氷を砕いて落とし穴に沈めた",
+            "動力ケーブルを切断した"
+          ],
+          correct: 0,
+          explain: "正面装甲が硬すぎるため、スノースピーダーのトウケーブルで脚を縛り上げる戦法が取られました。"
+        },
+        {
+          q: "ホスのエコー基地が、輸送船を脱出させるために使用した設備は？",
+          choices: [
+            "イオン砲",
+            "重力井戸発生装置",
+            "ハイパースペース・ゲート",
+            "電磁パルス発生装置"
+          ],
+          correct: 0,
+          explain: "地上のイオン砲が上空のスター・デストロイヤーを一時的に無力化し、その隙に輸送船が脱出します。"
+        },
+        {
+          q: "作戦に失敗した部下に対し、ダース・ベイダーが繰り返し行った処置は？",
+          choices: [
+            "フォースで首を絞めて処刑した",
+            "軍法会議にかけた",
+            "階級を剥奪して追放した",
+            "皇帝に報告して裁かせた"
+          ],
+          correct: 0,
+          explain: "失敗のたびに提督を処刑し、その場で後任を指名するというベイダーの苛烈さが繰り返し描かれます。"
+        },
+        {
+          q: "ホスへの強襲で奇襲に失敗し、ベイダーに処刑された提督は？",
+          choices: ["オジール提督", "ピエット提督", "モティ提督", "ニーダ艦長"],
+          correct: 0,
+          explain: "ハイパースペースから近すぎる位置に出て反乱軍に警戒されたため、オジール提督は処刑されピエットが昇進します。"
+        },
+        {
+          q: "ルークの処遇についてベイダーが指示を仰いだ相手は？",
+          choices: ["皇帝", "ターキン総督", "ピエット提督", "ボバ・フェット"],
+          correct: 0,
+          explain: "皇帝はホログラムで現れ、ルークを抹殺せよと命じますが、ベイダーは闇に引き込むことを提案します。"
+        },
+        {
+          q: "ヨーダが当初ルークの訓練に反対した理由として挙げたものは？",
+          choices: [
+            "年を取りすぎており、忍耐と落ち着きがない",
+            "ミディ=クロリアン値が足りない",
+            "フォースの暗黒面に既に堕ちている",
+            "父の血を引いているから"
+          ],
+          correct: 0,
+          explain: "常に未来ばかりを見て今に集中できないルークの性質を、ヨーダは父と同じ危うさだと見抜いていました。"
+        },
+        {
+          q: "クラウド・シティでC-3POが受けた被害と、その後の経緯は？",
+          choices: [
+            "ばらばらに破壊され、チューバッカが背負って組み立て直した",
+            "記憶を消去され、再起動された",
+            "帝国に接収されたまま戻らなかった",
+            "R2-D2に修理された"
+          ],
+          correct: 0,
+          explain: "うっかり帝国兵に遭遇して撃たれたC-3POは、チューバッカが部品を拾い集めて修理することになります。"
+        },
+        {
+          q: "決闘に敗れたルークが投身した後、掴まって助けを待った場所は？",
+          choices: [
+            "クラウド・シティ下部の気象観測用アンテナ",
+            "格納庫の着陸脚",
+            "排気ダクトの縁",
+            "採掘用のクレーン"
+          ],
+          correct: 0,
+          explain: "深い縦坑を落下したルークは、都市の底部から突き出たアンテナにかろうじてぶら下がります。"
+        },
+        {
+          q: "ベイダーとの取り引きが次々に反故にされたランドが、最終的に取った行動は？",
+          choices: [
+            "都市の住民に避難を呼びかけ、一行の救出に回った",
+            "帝国に投降して助命を乞うた",
+            "単身でベイダーに戦いを挑んだ",
+            "都市を自爆させて脱出した"
+          ],
+          correct: 0,
+          explain: "条件を書き換え続ける帝国に見切りをつけ、ランドは避難放送を流しつつレイアたちを助け出します。"
+        },
+        {
+          q: "ルークが修行を切り上げて仲間の救出に向かうことに対し、ヨーダとオビ=ワンが警告した内容は？",
+          choices: [
+            "行けば今まで戦ってきたすべてを失いかねない",
+            "ベイダーには絶対に勝てない",
+            "ダゴバを出れば二度と戻れない",
+            "仲間は既に手遅れである"
+          ],
+          correct: 0,
+          explain: "訓練を終えぬまま行けば罠に落ちると2人は諫めますが、ルークは友を見捨てられず出発します。"
+        }
+      ]
+    }
   },
   {
-    q: "アナキンが物語を通して繰り返し見る悪夢で、命を落とすことを予知してしまう相手は？",
-    choices: ["オビ=ワン・ケノービ", "パドメ・アミダラ", "ヨーダ", "パルパティーン"],
-    correct: 1,
-    explain: "妻パドメが出産で命を落とす夢に苦しめられ、これがアナキンが闇落ちする大きな動機になります。"
-  },
-  {
-    q: "パルパティーンがアナキンに語る、死者を蘇らせる力すら持つとされる伝説上のシス卿の名は？",
-    choices: ["プレガス・ザ・ワイズ", "エクザー・クン", "ダース・ベイン", "ダース・タニス"],
-    correct: 0,
-    explain: "パルパティーンはプレガス・ザ・ワイズの伝説を語り、フォースの力で死を克服できるかもしれないとアナキンを誘惑します。"
-  },
-  {
-    q: "メイス・ウィンドウがパルパティーンの正体を暴き対決する際、シスとしてのパルパティーンの称号は？",
-    choices: ["ダース・シディアス", "ダース・プレガス", "ダース・ティラナス", "ダース・ベイダー"],
-    correct: 0,
-    explain: "パルパティーンの正体は暗黒卿ダース・シディアスであり、メイスに正体を見破られ執務室で対決になります。"
-  },
-  {
-    q: "メイスとの対決の末、アナキンが裏切りに転じたことで発令される、ジェダイ壊滅のための命令の名称は？",
-    choices: ["オーダー66", "オーダー99", "ダイレクティブ7", "プロトコル・ゼロ"],
-    correct: 0,
-    explain: "パルパティーンが全銀河のクローン軍に発したオーダー66により、各地のジェダイが一斉に殺害されていきます。"
-  },
-  {
-    q: "パルパティーンへの忠誠を誓い、シスの一員として生まれ変わったアナキンが名乗ることになる名は？",
-    choices: ["ダース・モール", "ダース・ベイダー", "ダース・ティラナス", "ダース・マランク"],
-    correct: 1,
-    explain: "銀河帝国の誕生と同時に、アナキン・スカイウォーカーはダース・ベイダーとして生まれ変わります。"
-  },
-  {
-    q: "アナキンとオビ=ワンの最終決闘の舞台となる、溶岩に覆われた惑星は？",
-    choices: ["ムスタファー", "ジオノーシス", "コルサント", "カシーック"],
-    correct: 0,
-    explain: "鉱物採掘惑星ムスタファーの溶岩地帯で、かつての師弟が壮絶な戦いを繰り広げます。"
-  },
-  {
-    q: "決闘に敗れ瀕死となったアナキンが帝国の技術で再生を果たす一方、パドメが出産後に息を引き取り誕生する双子は？",
-    choices: ["ルークとレイア", "ハンとチューイ", "ラースとオーウェン", "ベイルとブレハ"],
-    correct: 0,
-    explain: "パドメは双子ルークとレイアを出産した直後に命を落とし、2人はそれぞれ別々の場所で密かに育てられることになります。"
+    id: 'ep6',
+    ep: 'EPISODE VI',
+    name: 'ジェダイの帰還',
+    levels: {
+      basic: [
+        {
+          q: "冒頭、カーボン冷凍されたハン・ソロが壁に飾られていた宮殿の主は？",
+          choices: ["ジャバ・ザ・ハット", "ボバ・フェット", "ターキン総督", "ワトー"],
+          correct: 0,
+          explain: "タトゥイーンのジャバの宮殿で、ハンは装飾品のように壁に掛けられていました。"
+        },
+        {
+          q: "森に覆われた月エンドアに住む、小柄で毛深い種族は？",
+          choices: ["イウォーク族", "ジャワ族", "グンガン族", "ウーキー族"],
+          correct: 0,
+          explain: "イウォーク族は原始的な武器しか持ちませんが、地の利を活かして帝国軍を翻弄します。"
+        },
+        {
+          q: "建造中の第2デス・スターを守っていた防御設備は？",
+          choices: [
+            "エンドアの地上にあるシールド発生装置",
+            "軌道上の機雷原",
+            "巨大なトラクター・ビーム",
+            "反物質バリア"
+          ],
+          correct: 0,
+          explain: "地上のシールド発生装置を破壊しなければ艦隊は攻撃できず、ハンたちが潜入部隊を率います。"
+        },
+        {
+          q: "ルークとレイアの関係として明かされる事実は？",
+          choices: ["双子の兄妹", "いとこ", "義理の兄妹", "血縁はない"],
+          correct: 0,
+          explain: "ヨーダとオビ=ワンの霊の言葉を受け、ルークはレイアが自分の双子の妹だと確信します。"
+        },
+        {
+          q: "最期にルークを救い、皇帝を倒したのは誰？",
+          choices: [
+            "ダース・ベイダー",
+            "ランド・カルリジアン",
+            "ヨーダ",
+            "レイア・オーガナ"
+          ],
+          correct: 0,
+          explain: "苦しむ息子を見たベイダーはアナキンとしての心を取り戻し、皇帝を炉心へ投げ落とします。"
+        },
+        {
+          q: "ジャバ・ザ・ハットを自らの手で倒したのは誰？",
+          choices: ["レイア", "ルーク", "ハン・ソロ", "チューバッカ"],
+          correct: 0,
+          explain: "奴隷として鎖につながれていたレイアが、その鎖を使ってジャバを絞め殺します。"
+        },
+        {
+          q: "第2デス・スターの内部へ突入し、これを破壊した船は？",
+          choices: [
+            "ミレニアム・ファルコン",
+            "ルークのXウィング",
+            "アクバー提督の旗艦",
+            "帝国から奪ったシャトル"
+          ],
+          correct: 0,
+          explain: "ランドが操縦するファルコンが反応炉を撃ち抜き、間一髪で脱出に成功します。"
+        },
+        {
+          q: "ヨーダが天寿を全うし、フォースと一体になる惑星は？",
+          choices: ["ダゴバ", "コルサント", "エンドア", "ナブー"],
+          correct: 0,
+          explain: "修行を終えて戻ったルークに最後の真実を告げ、ヨーダはダゴバの小屋で静かに姿を消します。"
+        },
+        {
+          q: "皇帝の前でルークが最後まで拒んだこととは？",
+          choices: [
+            "父を殺して皇帝の弟子になること",
+            "反乱軍の居場所を明かすこと",
+            "ライトセーバーを捨てること",
+            "レイアの存在を認めること"
+          ],
+          correct: 0,
+          explain: "ルークは武器を捨て、自分はジェダイであり父と同じ道は歩まないと宣言します。"
+        },
+        {
+          q: "皇帝パルパティーンの、シス卿としての名は？",
+          choices: [
+            "ダース・シディアス",
+            "ダース・ティラナス",
+            "ダース・プレガス",
+            "ダース・モール"
+          ],
+          correct: 0,
+          explain: "共和国を内側から崩壊させた黒幕であり、その正体はシスの暗黒卿ダース・シディアスでした。"
+        }
+      ],
+      mid: [
+        {
+          q: "ジャバの宮殿の床下に潜み、ルークが素手で戦うことになった巨大な怪物は？",
+          choices: ["ランコア", "サルラック", "ワンパ", "アクリー"],
+          correct: 0,
+          explain: "落とし穴に落とされたルークは、落ちてきた鉄格子でランコアを押し潰して窮地を脱します。"
+        },
+        {
+          q: "ジャバが一行を処刑しようとした、砂漠の大穴に棲む生物は？",
+          choices: ["サルラック", "ランコア", "クレイト・ドラゴン", "ワンパ"],
+          correct: 0,
+          explain: "カークーンの大穴に棲むサルラックの体内で、千年かけて消化されるとC-3POが説明します。"
+        },
+        {
+          q: "帆船上の乱戦の末、サルラックの穴へ落ちていった賞金稼ぎは？",
+          choices: ["ボバ・フェット", "デンガー", "ボスク", "グリード"],
+          correct: 0,
+          explain: "ハンが偶然ジェットパックを叩いたことでボバ・フェットは制御を失い、大穴へ落ちていきます。"
+        },
+        {
+          q: "エンドアでルークとレイアが帝国兵を追跡する際に使った乗り物は？",
+          choices: ["スピーダーバイク", "AT-ST", "ランドスピーダー", "スノースピーダー"],
+          correct: 0,
+          explain: "森の中を高速で駆け抜けるスピーダーバイクでの追跡劇が、本作屈指の見せ場になっています。"
+        },
+        {
+          q: "反乱軍艦隊の総指揮を執った、魚類系の種族の提督は？",
+          choices: ["アクバー提督", "ピエット提督", "ドドンナ将軍", "リーカン将軍"],
+          correct: 0,
+          explain: "モン・カラマリ族のアクバー提督が艦隊を率い、これは罠だという台詞でも知られています。"
+        },
+        {
+          q: "エンドアの地上でシールド発生装置の破壊部隊を率いたのは？",
+          choices: ["ハン・ソロ", "ランド・カルリジアン", "アクバー提督", "ウェッジ・アンティリーズ"],
+          correct: 0,
+          explain: "将軍に任命されたハンが、レイアやチューバッカとともに地上部隊を指揮します。"
+        },
+        {
+          q: "イウォーク族はC-3POをどのような存在として扱った？",
+          choices: [
+            "神として崇めた",
+            "捕虜として尋問した",
+            "壊れた道具として分解しようとした",
+            "族長の使いとして歓迎した"
+          ],
+          correct: 0,
+          explain: "黄金に輝く姿から神と見なされ、ルークがフォースでC-3POを浮かせたことで信仰は決定的になります。"
+        },
+        {
+          q: "ルークがエンドアで自ら帝国軍に投降した理由は？",
+          choices: [
+            "父の中にまだ善が残っていると信じたから",
+            "仲間を逃がす時間を稼ぐため",
+            "皇帝の弟子になるため",
+            "デス・スターの内部構造を調べるため"
+          ],
+          correct: 0,
+          explain: "ベイダーを闇から連れ戻せると信じたルークは、レイアの反対を押し切って自ら出頭します。"
+        },
+        {
+          q: "皇帝がルークを暗黒面へ引き込むために煽った感情は？",
+          choices: [
+            "怒りと憎しみ",
+            "恐れと後悔",
+            "孤独と悲しみ",
+            "誇りと野心"
+          ],
+          correct: 0,
+          explain: "仲間が死ぬ様子を見せつけ、憎しみのままに剣を取れと皇帝は繰り返しルークを挑発します。"
+        },
+        {
+          q: "物語の最後、祝宴の場でルークが目にしたフォースの霊は誰か？",
+          choices: [
+            "オビ=ワン、ヨーダ、アナキン",
+            "オビ=ワン、クワイ=ガン、ヨーダ",
+            "ヨーダ、アナキン、パドメ",
+            "オビ=ワン、メイス、ヨーダ"
+          ],
+          correct: 0,
+          explain: "エンドアの祝宴を見守るように、3人の霊が並んで現れてルークに微笑みかけます。"
+        }
+      ],
+      hard: [
+        {
+          q: "ジャバの宮殿に潜入する際、レイアが変装していた賞金稼ぎの名は？",
+          choices: ["ブーシュ", "ゼイム", "デンガー", "ボスク"],
+          correct: 0,
+          explain: "レイアはウーブリック族の賞金稼ぎブーシュに扮し、チューバッカを引き渡すふりをして潜入します。"
+        },
+        {
+          q: "ジャバの宮殿の門を開けさせるため、ルークが門番ドロイドに対して使った力は？",
+          choices: [
+            "フォースによる精神操作",
+            "フォース・チョーク",
+            "電磁パルスによる強制解除",
+            "偽造した通行証"
+          ],
+          correct: 0,
+          explain: "マインド・トリックで門番を意のままに操り、ルークは悠然と宮殿の奥へ進んでいきます。"
+        },
+        {
+          q: "第2デス・スターが建造されていた宙域にある衛星は？",
+          choices: ["エンドア", "ヤヴィン4", "ホス", "ベスピン"],
+          correct: 0,
+          explain: "森の月エンドアの上空に浮かぶ形で、第2デス・スターは建造の最終段階にありました。"
+        },
+        {
+          q: "最終決戦でファルコンの副操縦士を務めた、サラスティアン族のパイロットは？",
+          choices: ["ニエン・ナン", "ウェッジ・アンティリーズ", "ジェク・ポーキンス", "アクバー"],
+          correct: 0,
+          explain: "ランドの隣でファルコンを操るニエン・ナンは、その独特の風貌でも印象を残します。"
+        },
+        {
+          q: "玉座の間で皇帝がルークに告げた、作戦上の決定的な事実は？",
+          choices: [
+            "反乱軍の攻撃は罠であり、デス・スターは既に稼働していた",
+            "シールド発生装置は既に破壊されていた",
+            "レイアが捕らえられている",
+            "ベイダーは処刑される予定である"
+          ],
+          correct: 0,
+          explain: "情報は皇帝自身が流したものであり、稼働済みの主砲で反乱軍艦隊は次々に撃沈されていきます。"
+        },
+        {
+          q: "瀕死のベイダーがルークに最後に頼んだことは？",
+          choices: [
+            "マスクを外し、自分の目で直接息子を見せてほしい",
+            "妹を守り抜いてほしい",
+            "自分を皇帝の隣に埋葬してほしい",
+            "ジェダイを再興してほしい"
+          ],
+          correct: 0,
+          explain: "生身の目で一度だけ息子を見たいという願いが、アナキンとしての最期の言葉になります。"
+        },
+        {
+          q: "エンドアの地上戦でイウォーク族が用いた戦法として描かれるものは？",
+          choices: [
+            "丸太の罠や投石器といった原始的な仕掛け",
+            "鹵獲したブラスターによる一斉射撃",
+            "森に火を放つ焦土戦術",
+            "地下道からの奇襲"
+          ],
+          correct: 0,
+          explain: "丸太を振り子のように振り下ろしAT-STを叩き潰すなど、原始的な罠が帝国の機械を次々に破壊します。"
+        },
+        {
+          q: "ヨーダが息を引き取る直前、ルークに告げた内容は？",
+          choices: [
+            "もう1人スカイウォーカーがいるということ",
+            "皇帝の弱点があるということ",
+            "ベイダーは既に救えないということ",
+            "ダゴバに秘密の記録があるということ"
+          ],
+          correct: 0,
+          explain: "他にもスカイウォーカーがいるという最後の言葉が、レイアの正体を知る手がかりとなります。"
+        },
+        {
+          q: "決闘中、ルークが怒りに駆られてベイダーに猛攻を加えるきっかけとなった発言は？",
+          choices: [
+            "妹を闇に引き込めばいいと示唆したこと",
+            "母を殺したのは自分だと告げたこと",
+            "オビ=ワンを侮辱したこと",
+            "ハン・ソロを処刑したと告げたこと"
+          ],
+          correct: 0,
+          explain: "ルークが拒み続けるなら妹を暗黒面に引き込むというベイダーの言葉が、彼の感情を決壊させます。"
+        },
+        {
+          q: "ベイダーが皇帝を倒す際に負った、致命傷の原因は？",
+          choices: [
+            "皇帝のフォースの稲妻を浴び続けたこと",
+            "ルークのライトセーバーで斬られたこと",
+            "炉心の爆発に巻き込まれたこと",
+            "落下によって装甲が損傷したこと"
+          ],
+          correct: 0,
+          explain: "皇帝を持ち上げて投げ落とす間、稲妻を浴び続けたことで生命維持装置が致命的な損傷を受けます。"
+        }
+      ]
+    }
   }
-    ]
+];
+
+/* ---------- lightsaber sfx, synthesised at runtime so no audio files are shipped ----------
+   the blade tone is two detuned saws under a sweeping lowpass; the snap is a short noise burst. */
+const SFX = (() => {
+  let ctx = null;
+  let master = null;
+
+  // localStorage throws on file:// and in some private-browsing modes
+  function readPref(){
+    try { return localStorage.getItem('sfx') !== 'off'; } catch { return true; }
   }
+  function writePref(on){
+    try { localStorage.setItem('sfx', on ? 'on' : 'off'); } catch {}
+  }
+
+  let enabled = readPref();
+
+  function ensure(){
+    if (!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.85;
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function blade(t0, dur, fromHz, toHz, peak){
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 6;
+    lp.frequency.setValueAtTime(380, t0);
+    lp.frequency.exponentialRampToValueAtTime(1900, t0 + dur * 0.25);
+    lp.frequency.exponentialRampToValueAtTime(680, t0 + dur);
+
+    [0, 3.5].forEach(detune => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(fromHz + detune, t0);
+      osc.frequency.exponentialRampToValueAtTime(toHz + detune, t0 + dur * 0.3);
+      osc.connect(lp);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    });
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.045);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    lp.connect(gain);
+    gain.connect(master);
+  }
+
+  function hiss(t0, dur, peak, centre){
+    const len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.1;
+    bp.frequency.setValueAtTime(centre, t0);
+    bp.frequency.exponentialRampToValueAtTime(centre * 0.4, t0 + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(peak, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    src.connect(bp); bp.connect(gain); gain.connect(master);
+    src.start(t0); src.stop(t0 + dur);
+  }
+
+  function ready(){ return enabled && ensure(); }
+
+  return {
+    get enabled(){ return enabled; },
+    toggle(){
+      enabled = !enabled;
+      writePref(enabled);
+      if (enabled) this.select();
+      return enabled;
+    },
+    ignite(){
+      if (!ready()) return;
+      const t = ctx.currentTime;
+      hiss(t, 0.16, 0.16, 3200);
+      blade(t, 0.85, 58, 112, 0.22);
+    },
+    powerDown(){
+      if (!ready()) return;
+      blade(ctx.currentTime, 0.55, 108, 42, 0.18);
+    },
+    swing(){
+      if (!ready()) return;
+      const t = ctx.currentTime;
+      hiss(t, 0.22, 0.09, 1800);
+      blade(t, 0.26, 150, 90, 0.13);
+    },
+    select(){
+      if (!ready()) return;
+      blade(ctx.currentTime, 0.16, 190, 260, 0.12);
+    }
+  };
+})();
+
+const GO_ARROW = `
+  <svg class="go" viewBox="0 0 34 10" fill="none" stroke="currentColor"
+       stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <line class="shaft" x1="0.6" y1="5" x2="26" y2="5"/>
+    <polyline class="head" points="21.6,1.2 25.8,5 21.6,8.8"/>
+  </svg>`;
+
+/* ---------- difficulty tiers, shared by every episode ---------- */
+const LEVELS = [
+  { id: 'basic', label: 'パダワン',         rank: 'Level 01' },
+  { id: 'mid',   label: 'ジェダイ・ナイト',  rank: 'Level 02' },
+  { id: 'hard',  label: 'ジェダイ・マスター', rank: 'Level 03' }
 ];
 
 /* ---------- state ---------- */
 let activeSet = null;
+let activeLevel = null;
+let activeQuestions = [];
 let current = 0;
 let score = 0;
 let userAnswers = []; // selected choice index per question, null = unanswered
@@ -732,18 +2326,33 @@ const answers = []; // {picked, correct, isCorrect} - built at grading time
 
 const screenCrawl = document.getElementById('screen-crawl');
 const screenIntro = document.getElementById('screen-intro');
+const screenLevel = document.getElementById('screen-level');
 const screenQuiz = document.getElementById('screen-quiz');
 const screenResult = document.getElementById('screen-result');
 const crawlInner = document.getElementById('crawlInner');
 const quizListEl = document.getElementById('quizList');
+const levelListEl = document.getElementById('levelList');
 
 renderQuizList();
 
 document.getElementById('skipCrawl').addEventListener('click', goToIntro);
 crawlInner.addEventListener('animationend', goToIntro);
+document.getElementById('backToEpisodes').addEventListener('click', quitToEpisodes);
+document.getElementById('homeBtn').addEventListener('click', quitToEpisodes);
+
+function quitToEpisodes(){
+  SFX.powerDown();
+  goToEpisodeSelect();
+}
 document.getElementById('prevBtn').addEventListener('click', goToPrevQuestion);
 document.getElementById('nextBtn').addEventListener('click', goToNextQuestion);
 document.getElementById('retryBtn').addEventListener('click', resetQuiz);
+
+const soundToggle = document.getElementById('soundToggle');
+soundToggle.classList.toggle('muted', !SFX.enabled);
+soundToggle.addEventListener('click', () => {
+  soundToggle.classList.toggle('muted', !SFX.toggle());
+});
 
 /* the shell shows/hides its top and bottom bars from this single flag */
 function setState(state){
@@ -752,8 +2361,19 @@ function setState(state){
 
 function goToIntro(){
   screenCrawl.classList.add('hidden');
+  goToEpisodeSelect();
+}
+
+function goToEpisodeSelect(){
+  screenLevel.classList.add('hidden');
+  screenQuiz.classList.add('hidden');
+  screenResult.classList.add('hidden');
   screenIntro.classList.remove('hidden');
   setState('intro');
+  current = 0;
+  score = 0;
+  answers.length = 0;
+  userAnswers = [];
 }
 
 function renderQuizList(){
@@ -764,23 +2384,54 @@ function renderQuizList(){
     btn.innerHTML = `
       <span class="quiz-ep">${set.ep}</span>
       <span class="quiz-name">${set.name}</span>
-      <span class="quiz-count">全${set.questions.length}問 <span class="arrow">▶</span></span>
+      <span class="quiz-count">${GO_ARROW}</span>
     `;
-    btn.addEventListener('click', () => startQuiz(set));
+    btn.addEventListener('click', () => goToLevelSelect(set));
     quizListEl.appendChild(btn);
   });
 }
 
-function startQuiz(set){
+function goToLevelSelect(set){
+  SFX.select();
   activeSet = set;
+  document.getElementById('levelEp').textContent = set.ep;
+  document.getElementById('levelName').textContent = set.name;
+  renderLevelList(set);
+  screenIntro.classList.add('hidden');
+  screenLevel.classList.remove('hidden');
+  setState('level');
+}
+
+function renderLevelList(set){
+  levelListEl.innerHTML = '';
+  LEVELS.forEach(level => {
+    const questions = set.levels[level.id];
+    const btn = document.createElement('button');
+    btn.className = `quiz-card lv-${level.id}`;
+    btn.innerHTML = `
+      <span class="quiz-ep">${level.rank}</span>
+      <span class="quiz-name">${level.label}</span>
+      <span class="quiz-count">全${questions.length}問${GO_ARROW}</span>
+    `;
+    btn.addEventListener('click', () => startQuiz(set, level));
+    levelListEl.appendChild(btn);
+  });
+}
+
+function startQuiz(set, level){
+  activeSet = set;
+  activeLevel = level;
+  activeQuestions = set.levels[level.id];
   current = 0;
   score = 0;
   answers.length = 0;
-  userAnswers = new Array(set.questions.length).fill(null);
-  screenIntro.classList.add('hidden');
+  userAnswers = new Array(activeQuestions.length).fill(null);
+  screenLevel.classList.add('hidden');
   screenQuiz.classList.remove('hidden');
   setState('quiz');
+  SFX.ignite();
   document.getElementById('metaSet').textContent = `${set.ep} ・ ${set.name}`;
+  document.getElementById('metaLevel').textContent = level.label;
   renderQuestion();
 }
 
@@ -790,11 +2441,11 @@ function answeredCount(){
 
 function updateAnsweredMeta(){
   document.getElementById('metaAnswered').textContent =
-    `回答済み ${answeredCount()} / ${activeSet.questions.length}`;
+    `回答済み ${answeredCount()} / ${activeQuestions.length}`;
 }
 
 function renderQuestion(){
-  const questions = activeSet.questions;
+  const questions = activeQuestions;
   const data = questions[current];
   const isLast = current === questions.length - 1;
   document.getElementById('metaPos').textContent =
@@ -809,7 +2460,8 @@ function renderQuestion(){
   data.choices.forEach((text, idx) => {
     const div = document.createElement('div');
     div.className = 'choice' + (userAnswers[current] === idx ? ' selected' : '');
-    div.innerHTML = `<span class="key">${String.fromCharCode(65+idx)}</span><span>${text}</span>`;
+    div.innerHTML = `<span class="wash"></span><span class="blade"></span>`
+      + `<span class="key">${String.fromCharCode(65+idx)}</span><span class="label">${text}</span>`;
     div.addEventListener('click', () => selectChoice(idx));
     choicesEl.appendChild(div);
   });
@@ -818,10 +2470,11 @@ function renderQuestion(){
   const nextBtn = document.getElementById('nextBtn');
   prevBtn.disabled = current === 0;
   nextBtn.disabled = userAnswers[current] === null;
-  nextBtn.textContent = isLast ? '結果を見る ▶' : '次へ ▶';
+  nextBtn.innerHTML = `${isLast ? '結果を見る' : '次へ'}<svg class="chev" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.6,1.4 6.2,6 1.6,10.6"/></svg>`;
 }
 
 function selectChoice(idx){
+  if (userAnswers[current] !== idx) SFX.select();
   userAnswers[current] = idx;
   const choiceEls = document.querySelectorAll('#choices .choice');
   choiceEls.forEach((el, i) => el.classList.toggle('selected', i === idx));
@@ -832,21 +2485,23 @@ function selectChoice(idx){
 function goToPrevQuestion(){
   if (current === 0) return;
   current--;
+  SFX.swing();
   renderQuestion();
 }
 
 function goToNextQuestion(){
-  const questions = activeSet.questions;
+  const questions = activeQuestions;
   if (current === questions.length - 1){
     finishQuiz();
   } else {
     current++;
+    SFX.swing();
     renderQuestion();
   }
 }
 
 function finishQuiz(){
-  const questions = activeSet.questions;
+  const questions = activeQuestions;
   score = 0;
   answers.length = 0;
   questions.forEach((data, i) => {
@@ -865,12 +2520,12 @@ function finishQuiz(){
 }
 
 function getRank(score){
-  if (score === activeSet.questions.length) return {
+  if (score === activeQuestions.length) return {
     title: "称号：フォースの申し子",
     desc: "全問正解。まるでミディ=クロリアン値が振り切れているかのような記憶力です。オビ=ワンもきっと誇らしげにうなずくでしょう。"
   };
   if (score >= 8) return {
-    title: "称号：ジェダイ・パダワン",
+    title: "称号：銀河の語り部",
     desc: "ほぼ完璧な理解度。物語の細部までしっかり記憶に刻まれています。"
   };
   if (score >= 6) return {
@@ -891,11 +2546,13 @@ function showResult(){
   screenQuiz.classList.add('hidden');
   screenResult.classList.remove('hidden');
   setState('result');
+  SFX.ignite();
   document.getElementById('progressFill').style.width = '100%';
 
-  document.getElementById('resultSetLabel').textContent = `${activeSet.ep} ・ ${activeSet.name}`;
+  document.getElementById('resultSetLabel').textContent =
+    `${activeSet.ep} ・ ${activeSet.name} ・ ${activeLevel.label}`;
   document.getElementById('finalScore').textContent = score;
-  document.getElementById('finalTotal').textContent = activeSet.questions.length;
+  document.getElementById('finalTotal').textContent = activeQuestions.length;
   const rank = getRank(score);
   document.getElementById('rankBadge').textContent = rank.title;
   document.getElementById('rankDesc').textContent = rank.desc;
@@ -904,10 +2561,11 @@ function showResult(){
   list.innerHTML = '';
   answers.forEach((a, i) => {
     const div = document.createElement('div');
-    div.className = 'rev';
+    div.className = 'rev ' + (a.isCorrect ? 'ok' : 'ng');
+    div.style.setProperty('--i', i); // staggers the blade ignition down the list
     div.innerHTML = `
       <div class="rev-q">
-        <span class="rev-ic ${a.isCorrect ? 'ok' : 'ng'}">${a.isCorrect ? '✓' : '✕'}</span>
+        <span class="rev-ic">${a.isCorrect ? '✓' : '✕'}</span>
         <span>${String(i+1).padStart(2,'0')}. ${a.q}</span>
       </div>
       <div class="rev-body">
@@ -923,12 +2581,7 @@ function showResult(){
 }
 
 function resetQuiz(){
-  current = 0;
-  score = 0;
-  answers.length = 0;
-  screenResult.classList.add('hidden');
-  screenIntro.classList.remove('hidden');
-  setState('intro');
+  quitToEpisodes();
 }
 </script>
 </body>
